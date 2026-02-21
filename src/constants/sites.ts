@@ -1,5 +1,6 @@
 import type { SiteAdapter, SiteConfig } from '../types/adapter';
 import { InputType } from '../types/adapter';
+import type { UserSelectorConfig, ElementSelectorInfo } from '../types/storage';
 
 /**
  * 目标网站配置列表
@@ -182,4 +183,179 @@ function isUrlMatchSite(url: string, siteId: string): boolean {
     default:
       return false;
   }
+}
+
+/**
+ * 降级处理接口预留
+ * 这些接口将在后续实现中完善
+ */
+
+/**
+ * 设置用户自定义选择器
+ * @param siteId 网站 ID
+ * @param type 选择器类型 ('input' | 'container')
+ * @param selector CSS 选择器
+ */
+export function setCustomSelector(
+  siteId: string,
+  type: 'input' | 'container',
+  selector: string
+): void {
+  console.log('[AutoPromptOpt] setCustomSelector called (not implemented yet)', { siteId, type, selector });
+}
+
+/**
+ * 获取用户自定义选择器
+ * @param siteId 网站 ID
+ * @param type 选择器类型 ('input' | 'container')
+ * @returns CSS 选择器或 null
+ */
+export function getCustomSelector(
+  siteId: string,
+  type: 'input' | 'container'
+): string | null {
+  console.log('[AutoPromptOpt] getCustomSelector called (not implemented yet)', { siteId, type });
+  return null;
+}
+
+/**
+ * 验证选择器是否有效
+ * @param selector CSS 选择器
+ * @returns 是否有效
+ */
+export function validateSelector(selector: string): boolean {
+  try {
+    const element = document.querySelector(selector);
+    return element !== null;
+  } catch (error) {
+    console.error('[AutoPromptOpt] Invalid selector:', selector, error);
+    return false;
+  }
+}
+
+/**
+ * 捕获元素的选择器信息
+ * @param element HTML 元素
+ * @returns 元素选择器信息
+ */
+export function captureElement(element: HTMLElement): ElementSelectorInfo {
+  const domPath = getDomPath(element);
+  const xpath = getXPath(element);
+  const cssSelector = getCssSelector(element);
+
+  return {
+    domPath,
+    xpath,
+    cssSelector,
+  };
+}
+
+/**
+ * 获取元素的 DOM Path
+ * @param element HTML 元素
+ * @returns DOM Path 字符串
+ */
+function getDomPath(element: HTMLElement): string {
+  const path: string[] = [];
+  let current: HTMLElement | null = element;
+
+  while (current && current !== document.body) {
+    let selector = current.tagName.toLowerCase();
+
+    if (current.id) {
+      selector += `#${current.id}`;
+    } else if (current.classList.length > 0) {
+      selector += `.${Array.from(current.classList).join('.')}`;
+    }
+
+    const parent: HTMLElement | null = current.parentElement;
+    if (parent) {
+      const siblings = Array.from(parent.children);
+      const index = siblings.indexOf(current);
+      if (index > 0) {
+        selector += `:nth-child(${index + 1})`;
+      }
+    }
+
+    path.unshift(selector);
+    current = parent;
+  }
+
+  return path.join(' > ');
+}
+
+/**
+ * 获取元素的 XPath
+ * @param element HTML 元素
+ * @returns XPath 字符串
+ */
+function getXPath(element: HTMLElement): string {
+  if (element.id) {
+    return `//*[@id="${element.id}"]`;
+  }
+
+  const parts: string[] = [];
+  let current: HTMLElement | null = element;
+
+  while (current && current !== document.documentElement) {
+    let index = 0;
+    let sibling = current.previousElementSibling;
+
+    while (sibling) {
+      if (sibling.tagName === current.tagName) {
+        index++;
+      }
+      sibling = sibling.previousElementSibling;
+    }
+
+    const tagName = current.tagName.toLowerCase();
+    const pathIndex = index > 0 ? `[${index + 1}]` : '';
+    parts.unshift(`${tagName}${pathIndex}`);
+
+    current = current.parentElement;
+  }
+
+  return '/' + parts.join('/');
+}
+
+/**
+ * 获取元素的 CSS Selector
+ * @param element HTML 元素
+ * @returns CSS Selector 字符串
+ */
+function getCssSelector(element: HTMLElement): string {
+  if (element.id) {
+    return `#${element.id}`;
+  }
+
+  const path: string[] = [];
+  let current: HTMLElement | null = element;
+
+  while (current && current !== document.body) {
+    let selector = current.tagName.toLowerCase();
+
+    if (current.id) {
+      selector += `#${current.id}`;
+      path.unshift(selector);
+      break;
+    } else if (current.classList.length > 0) {
+      selector += `.${Array.from(current.classList).join('.')}`;
+    }
+
+    const parent: HTMLElement | null = current.parentElement;
+    if (parent) {
+      const siblings = Array.from(parent.children).filter(
+        (el) => el.tagName === current?.tagName
+      );
+      const index = siblings.indexOf(current);
+      if (siblings.length > 1) {
+        selector += `:nth-of-type(${index + 1})`;
+      }
+    }
+
+    path.unshift(selector);
+    current = parent;
+  }
+
+  return path.join(' > ');
 }

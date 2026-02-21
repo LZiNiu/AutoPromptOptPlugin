@@ -1,4 +1,5 @@
-import { defineConfig } from 'wxt';
+import { defineConfig, type WxtViteConfig } from 'wxt';
+import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   modules: ['@wxt-dev/module-vue'],
@@ -6,4 +7,7 @@ export default defineConfig({
   manifest: {
     permissions: ['storage', 'activeTab', 'scripting'],
   },
+  vite: () => ({
+    plugins: [tailwindcss()],
+  } as WxtViteConfig),
 });

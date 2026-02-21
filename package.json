@@ -15,7 +15,11 @@
     "postinstall": "wxt prepare"
   },
   "dependencies": {
-    "vue": "^3.5.27"
+    "@tailwindcss/vite": "^4.2.0",
+    "pinia": "^3.0.4",
+    "tailwindcss": "^4.2.0",
+    "vue": "^3.5.27",
+    "vue-i18n": "^11.2.8"
   },
   "devDependencies": {
     "@wxt-dev/module-vue": "^1.0.3",
