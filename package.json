@@ -1,6 +1,6 @@
 {
-  "name": "wxt-vue-starter",
-  "description": "manifest.json description",
+  "name": "AutoPromptOpt",
+  "description": "提示词优化与模板管理插件",
   "private": true,
   "version": "0.0.0",
   "type": "module",
