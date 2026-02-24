@@ -1,25 +1,25 @@
 import { storage } from '#imports';
-import { ref, watch, onUnmounted } from 'vue';
-import type { Ref } from 'vue';
 import type {
   StorageData,
-  UserConfig,
+  LLMConfig,
   PromptTemplate,
   OptimizeHistory,
   AppSettings,
   UserSelectorConfig,
 } from '@/types/storage';
-import { DEFAULT_USER_CONFIG, DEFAULT_APP_SETTINGS, DEFAULT_TEMPLATES } from '@/constants/defaults';
+import { DEFAULT_LLM_CONFIG, DEFAULT_APP_SETTINGS, DEFAULT_TEMPLATES } from '@/constants/defaults';
 
-const userConfigItem = storage.defineItem<UserConfig>('local:userConfig', {
-  fallback: DEFAULT_USER_CONFIG,
+// ==================== Storage Items 定义 ====================
+
+const llmConfigItem = storage.defineItem<LLMConfig>('local:llmConfig', {
+  fallback: DEFAULT_LLM_CONFIG,
 });
 
 const promptTemplatesItem = storage.defineItem<PromptTemplate[]>('local:promptTemplates', {
   fallback: DEFAULT_TEMPLATES,
 });
 
-const optimizeHistoryItem = storage.defineItem<OptimizeHistory[]>('local:optimizeHistory', {
+const optimizeHistoryItem = storage.defineItem<OptimizeHistory[]>('session:optimizeHistory', {
   fallback: [],
 });
 
@@ -31,171 +31,102 @@ const userSelectorsItem = storage.defineItem<Record<string, UserSelectorConfig>>
   fallback: {},
 });
 
-/**
- * 创建响应式 Storage Item 的通用封装
- * 实现同一 Vue App 内数据同步 + 不同 Vue App (popup ↔ option) 数据同步
- * @param storageItem WXT storage.defineItem 创建的 storage item
- * @returns 响应式 Ref 对象
- */
-function createReactiveStorageItem<T>(storageItem: {
-  fallback: T;
-  getValue: () => Promise<T | undefined>;
-  setValue: (value: T) => Promise<void>;
-  watch: (callback: (newValue: T | undefined, oldValue: T | undefined) => void) => () => void;
-}): Ref<T> {
-  const fallback = storageItem.fallback;
-  const initialValue = Array.isArray(fallback)
-    ? [...fallback]
-    : typeof fallback === 'object' && fallback !== null
-      ? { ...fallback }
-      : fallback;
-  const value = ref<T>(initialValue as T) as Ref<T>;
+// ==================== 通用操作函数 ====================
 
-  const init = async () => {
-    const storedValue = await storageItem.getValue();
-    if (storedValue !== undefined && storedValue !== null) {
-      value.value = storedValue;
-    }
+type WxtStorageItem<T> = ReturnType<typeof storage.defineItem<T>>;
+
+/**
+ * 获取存储项的值
+ */
+export async function getStorageItem<T>(item: WxtStorageItem<T>, fallback: T): Promise<T> {
+  const value = await item.getValue();
+  return value ?? fallback;
+}
+
+/**
+ * 设置存储项的值
+ */
+export async function setStorageItem<T>(item: WxtStorageItem<T>, value: T): Promise<void> {
+  await item.setValue(value);
+}
+
+/**
+ * 监听存储项的变化
+ * @returns 取消监听函数
+ */
+export function watchStorageItem<T>(item: WxtStorageItem<T>, callback: (value: T) => void): () => void {
+  return item.watch(callback as (value: T | null) => void); // 类型断言, 消除ts错误, 实际callback不会为null
+}
+
+/**
+ * 更新存储项的值（部分更新）
+ */
+export async function updateStorageItem<T>(item: WxtStorageItem<T>, value: Partial<T>): Promise<void> {
+  const currentValue = await item.getValue();
+  if (!currentValue) return;
+  await item.setValue({ ...currentValue, ...value });
+}
+
+// ==================== 便捷访问器工厂 ====================
+
+interface StorageAccessors<T> {
+  get: () => Promise<T>;
+  set: (value: T) => Promise<void>;
+  update: (value: Partial<T>) => Promise<void>;
+  watch: (callback: (value: T) => void) => () => void;
+}
+
+/**
+ * 创建存储项的便捷访问器
+ */
+function createStorageAccessors<T>(item: WxtStorageItem<T>, fallback: T): StorageAccessors<T> {
+  return {
+    get: () => getStorageItem(item, fallback),
+    set: (value: T) => setStorageItem(item, value),
+    update: (value: Partial<T>) => updateStorageItem(item, value),
+    watch: (callback: (value: T) => void) => watchStorageItem(item, callback),
   };
-  init();
-
-  const unwatchStorage = storageItem.watch((newValue) => {
-    if (newValue !== undefined && newValue !== null) {
-      value.value = newValue;
-    }
-  });
-
-  const stopWatchLocal = watch(
-    value,
-    (newVal) => {
-      storageItem.setValue(newVal);
-    },
-    { deep: true }
-  );
-
-  onUnmounted(() => {
-    unwatchStorage();
-    stopWatchLocal();
-  });
-
-  return value;
 }
+
+// ==================== 便捷访问器导出 ====================
 
 /**
- * 用户配置响应式 Storage
- * 自动同步 popup 和 option 页面的用户配置
+ * LLM 配置便捷访问器
  */
-export function useUserConfig(): Ref<UserConfig> {
-  return createReactiveStorageItem(userConfigItem);
-}
+export const llmConfig = createStorageAccessors(llmConfigItem, DEFAULT_LLM_CONFIG);
 
 /**
- * 提示词模板响应式 Storage
+ * 提示词模板便捷访问器
  */
-export function usePromptTemplates(): Ref<PromptTemplate[]> {
-  return createReactiveStorageItem(promptTemplatesItem);
-}
+export const promptTemplates = createStorageAccessors(promptTemplatesItem, DEFAULT_TEMPLATES);
 
 /**
- * 优化历史记录响应式 Storage
+ * 优化历史记录便捷访问器
  */
-export function useOptimizeHistory(): Ref<OptimizeHistory[]> {
-  return createReactiveStorageItem(optimizeHistoryItem);
-}
+export const optimizeHistory = createStorageAccessors(optimizeHistoryItem, []);
 
 /**
- * 应用设置响应式 Storage
- * 自动同步 popup 和 option 页面的应用设置
+ * 应用设置便捷访问器
  */
-export function useAppSettings(): Ref<AppSettings> {
-  return createReactiveStorageItem(appSettingsItem);
-}
+export const appSettings = createStorageAccessors(appSettingsItem, DEFAULT_APP_SETTINGS);
 
 /**
- * 用户选择器配置响应式 Storage
+ * 用户选择器配置便捷访问器
  */
-export function useUserSelectors(): Ref<Record<string, UserSelectorConfig>> {
-  return createReactiveStorageItem(userSelectorsItem);
-}
+export const userSelectors = createStorageAccessors(userSelectorsItem, {});
 
-/**
- * 获取用户配置（非响应式）
- */
-export async function getUserConfig(): Promise<UserConfig> {
-  return (await userConfigItem.getValue()) || DEFAULT_USER_CONFIG;
-}
-
-/**
- * 更新用户配置（部分更新）
- */
-export async function updateUserConfig(config: Partial<UserConfig>): Promise<void> {
-  const currentConfig = await userConfigItem.getValue();
-  if (!currentConfig) return;
-  await userConfigItem.setValue({ ...currentConfig, ...config });
-}
-
-/**
- * 保存用户配置（完整覆盖）
- */
-export async function saveUserConfig(config: UserConfig): Promise<void> {
-  await userConfigItem.setValue(config);
-}
-
-/**
- * 保存提示词模板列表
- */
-export async function savePromptTemplates(templates: PromptTemplate[]): Promise<void> {
-  await promptTemplatesItem.setValue(templates);
-}
-
-/**
- * 添加提示词模板
- */
-export async function addPromptTemplate(template: PromptTemplate): Promise<void> {
-  const templates = (await promptTemplatesItem.getValue()) || [];
-  await promptTemplatesItem.setValue([...templates, template]);
-}
-
-/**
- * 更新提示词模板
- */
-export async function updatePromptTemplate(
-  templateId: string,
-  updates: Partial<PromptTemplate>
-): Promise<void> {
-  const templates = await promptTemplatesItem.getValue();
-  if (!templates) return;
-
-  const updatedTemplates = templates.map((template) =>
-    template.id === templateId ? { ...template, ...updates, updatedAt: Date.now() } : template
-  );
-  await promptTemplatesItem.setValue(updatedTemplates);
-}
-
-/**
- * 删除提示词模板
- */
-export async function deletePromptTemplate(templateId: string): Promise<void> {
-  const templates = await promptTemplatesItem.getValue();
-  if (!templates) return;
-
-  await promptTemplatesItem.setValue(templates.filter((template) => template.id !== templateId));
-}
+// ==================== 特殊操作函数 ====================
 
 /**
  * 添加优化历史记录
  */
 export async function addOptimizeHistory(history: OptimizeHistory): Promise<void> {
-  const histories = (await optimizeHistoryItem.getValue()) || [];
-  const appSettings = await appSettingsItem.getValue();
-  const maxCount = appSettings?.maxHistoryCount || 50;
+  const histories = await optimizeHistory.get();
+  const settings = await appSettings.get();
+  const maxCount = settings?.maxHistoryCount || 50;
 
-  let updatedHistories = [history, ...histories];
-  if (updatedHistories.length > maxCount) {
-    updatedHistories = updatedHistories.slice(0, maxCount);
-  }
-
-  await optimizeHistoryItem.setValue(updatedHistories);
+  const updatedHistories = [history, ...histories].slice(0, maxCount);
+  await optimizeHistory.set(updatedHistories);
 }
 
 /**
@@ -203,55 +134,38 @@ export async function addOptimizeHistory(history: OptimizeHistory): Promise<void
  */
 export async function clearOptimizeHistory(historyId?: string): Promise<void> {
   if (historyId) {
-    const histories = await optimizeHistoryItem.getValue();
-    if (!histories) return;
-    await optimizeHistoryItem.setValue(histories.filter((history) => history.id !== historyId));
+    const histories = await optimizeHistory.get();
+    await optimizeHistory.set(histories.filter((h) => h.id !== historyId));
   } else {
-    await optimizeHistoryItem.setValue([]);
+    await optimizeHistory.set([]);
   }
 }
 
 /**
- * 保存应用设置
- */
-export async function saveAppSettings(settings: AppSettings): Promise<void> {
-  await appSettingsItem.setValue(settings);
-}
-
-/**
- * 更新应用设置（部分更新）
- */
-export async function updateAppSettings(settings: Partial<AppSettings>): Promise<void> {
-  const currentSettings = await appSettingsItem.getValue();
-  if (!currentSettings) return;
-  await appSettingsItem.setValue({ ...currentSettings, ...settings });
-}
-
-/**
- * 保存用户选择器配置
+ * 保存单个用户选择器配置
  */
 export async function saveUserSelector(siteId: string, config: UserSelectorConfig): Promise<void> {
-  const selectors = (await userSelectorsItem.getValue()) || {};
-  await userSelectorsItem.setValue({ ...selectors, [siteId]: config });
+  const selectors = await userSelectors.get();
+  await userSelectors.set({ ...selectors, [siteId]: config });
 }
 
 /**
  * 删除用户选择器配置
  */
 export async function deleteUserSelector(siteId: string): Promise<void> {
-  const selectors = await userSelectorsItem.getValue();
-  if (!selectors) return;
-
+  const selectors = await userSelectors.get();
   const { [siteId]: _, ...updatedSelectors } = selectors;
-  await userSelectorsItem.setValue(updatedSelectors);
+  await userSelectors.set(updatedSelectors);
 }
+
+// ==================== Utility API ====================
 
 /**
  * 清除所有存储数据
  */
 export async function clearAllStorage(): Promise<void> {
   await Promise.all([
-    userConfigItem.removeValue(),
+    llmConfigItem.removeValue(),
     promptTemplatesItem.removeValue(),
     optimizeHistoryItem.removeValue(),
     appSettingsItem.removeValue(),
@@ -263,9 +177,9 @@ export async function clearAllStorage(): Promise<void> {
  * 导出存储数据
  */
 export async function exportStorageData(): Promise<Partial<StorageData>> {
-  const [userConfig, promptTemplates, optimizeHistory, appSettings, userSelectors] =
+  const [llmConfig, templates, history, settings, selectors] =
     await Promise.all([
-      userConfigItem.getValue(),
+      llmConfigItem.getValue(),
       promptTemplatesItem.getValue(),
       optimizeHistoryItem.getValue(),
       appSettingsItem.getValue(),
@@ -273,11 +187,11 @@ export async function exportStorageData(): Promise<Partial<StorageData>> {
     ]);
 
   return {
-    userConfig: userConfig || DEFAULT_USER_CONFIG,
-    promptTemplates: promptTemplates || DEFAULT_TEMPLATES,
-    optimizeHistory: optimizeHistory || [],
-    appSettings: appSettings || DEFAULT_APP_SETTINGS,
-    userSelectors: userSelectors || {},
+    userConfig: llmConfig || DEFAULT_LLM_CONFIG,
+    promptTemplates: templates || DEFAULT_TEMPLATES,
+    optimizeHistory: history || [],
+    appSettings: settings || DEFAULT_APP_SETTINGS,
+    userSelectors: selectors || {},
   };
 }
 
@@ -287,7 +201,7 @@ export async function exportStorageData(): Promise<Partial<StorageData>> {
 export async function importStorageData(data: Partial<StorageData>): Promise<void> {
   const promises: Promise<void>[] = [];
 
-  if (data.userConfig) promises.push(userConfigItem.setValue(data.userConfig));
+  if (data.userConfig) promises.push(llmConfigItem.setValue(data.userConfig));
   if (data.promptTemplates) promises.push(promptTemplatesItem.setValue(data.promptTemplates));
   if (data.optimizeHistory) promises.push(optimizeHistoryItem.setValue(data.optimizeHistory));
   if (data.appSettings) promises.push(appSettingsItem.setValue(data.appSettings));

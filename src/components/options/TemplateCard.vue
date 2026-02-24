@@ -10,13 +10,13 @@
     <div class="card-footer">
       <span class="card-date">{{ formatDate(template.updatedAt) }}</span>
       <div class="card-actions">
-        <button @click="$emit('edit', template)" class="action-btn" title="Edit">
+        <button @click="$emit('edit', template)" class="action-btn" :title="t('templates.editTemplate')">
           ✏️
         </button>
-        <button @click="$emit('duplicate', template)" class="action-btn" title="Duplicate">
+        <button @click="$emit('duplicate', template)" class="action-btn" :title="t('templates.duplicateTemplate')">
           📋
         </button>
-        <button @click="$emit('delete', template)" class="action-btn" title="Delete">
+        <button @click="$emit('delete', template)" class="action-btn" :title="t('templates.deleteTemplate')">
           🗑️
         </button>
       </div>
@@ -27,6 +27,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { PromptTemplate } from '@/types/storage';
+import { useI18n } from 'vue-i18n';
 
 
 const props = defineProps<{
@@ -38,6 +39,8 @@ defineEmits<{
   duplicate: [template: PromptTemplate];
   delete: [template: PromptTemplate];
 }>();
+
+const { t } = useI18n();
 
 const contentPreview = computed(() => {
   const maxLength = 150;

@@ -4,14 +4,14 @@
     
     <div class="settings-section">
       <h3 class="section-title">{{ t('settings.apiKey') }}</h3>
-      <ApiKeyInput v-model="userConfig.apiKey" />
+      <ApiKeyInput v-model="apiKey" />
       <p class="help-text">{{ t('settings.apiKeyHelp') }}</p>
     </div>
 
     <div class="settings-section">
       <h3 class="section-title">{{ t('settings.apiProvider') }}</h3>
       <div class="select-wrapper">
-        <select v-model="userConfig.apiProvider" class="form-select">
+        <select v-model="apiProvider" class="form-select">
           <option value="huggingface">{{ t('settings.apiProviderHuggingface') }}</option>
           <option value="replicate">{{ t('settings.apiProviderReplicate') }}</option>
           <option value="custom">{{ t('settings.apiProviderCustom') }}</option>
@@ -20,20 +20,20 @@
       </div>
     </div>
 
-    <div v-if="userConfig.apiProvider === 'custom'" class="settings-section">
+    <div v-if="apiProvider === 'custom'" class="settings-section">
       <h3 class="section-title">{{ t('settings.customEndpoint') }}</h3>
       <input
-        v-model="userConfig.customEndpoint"
+        v-model="customEndpoint"
         type="text"
         :placeholder="t('settings.customEndpointPlaceholder')"
         class="form-input"
       />
     </div>
 
-    <div v-if="userConfig.apiProvider === 'custom'" class="settings-section">
+    <div v-if="apiProvider === 'custom'" class="settings-section">
       <h3 class="section-title">{{ t('settings.customModel') }}</h3>
       <input
-        v-model="userConfig.customModel"
+        v-model="customModel"
         type="text"
         :placeholder="t('settings.customModelPlaceholder')"
         class="form-input"
@@ -43,7 +43,7 @@
     <div class="settings-section">
       <h3 class="section-title">{{ t('settings.skipPreview') }}</h3>
       <div class="setting-row">
-        <ToggleSwitch v-model="appSettings.skipPreview" />
+        <ToggleSwitch :model-value="settingsStore.skipPreview" @update:model-value="handleSkipPreviewChange" />
         <p class="help-text">{{ t('settings.skipPreviewHelp') }}</p>
       </div>
     </div>
@@ -51,7 +51,7 @@
     <div class="settings-section">
       <h3 class="section-title">{{ t('settings.shortcutKey') }}</h3>
       <input
-        v-model="appSettings.shortcutKey"
+        :value="settingsStore.shortcutKey"
         type="text"
         class="form-input"
         readonly
@@ -62,7 +62,8 @@
     <div class="settings-section">
       <h3 class="section-title">{{ t('settings.maxHistoryCount') }}</h3>
       <input
-        v-model.number="appSettings.maxHistoryCount"
+        :value="settingsStore.maxHistoryCount"
+        @input="handleMaxHistoryCountChange"
         type="number"
         :min="10"
         :max="100"
@@ -84,28 +85,85 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useAppSettings, useUserConfig } from '@/utils/storage';
-import { DEFAULT_APP_SETTINGS, DEFAULT_USER_CONFIG } from '@/constants/defaults';
+import { useSettingsStore } from '@/stores';
+import { llmConfig as llmConfigStorage } from '@/utils/storage';
+import type { LLMConfig } from '@/types/storage';
+import { DEFAULT_LLM_CONFIG } from '@/constants/defaults';
 import ApiKeyInput from '@/components/common/ApiKeyInput.vue';
 import ToggleSwitch from './ToggleSwitch.vue';
 
 const { t } = useI18n();
-const appSettings = useAppSettings();
-const userConfig = useUserConfig();
+const settingsStore = useSettingsStore();
+
+const llmConfig = ref<LLMConfig>({ ...DEFAULT_LLM_CONFIG });
+let unwatchLLMConfig: (() => void) | null = null;
+
 const showSavedMessage = ref(false);
 
-function handleReset() {
+const apiKey = computed({
+  get: () => llmConfig.value.apiKey,
+  set: (val) => {
+    llmConfig.value.apiKey = val;
+    llmConfigStorage.set(llmConfig.value);
+  }
+});
+
+const apiProvider = computed({
+  get: () => llmConfig.value.apiProvider,
+  set: (val) => {
+    llmConfig.value.apiProvider = val;
+    llmConfigStorage.set(llmConfig.value);
+  }
+});
+
+const customEndpoint = computed({
+  get: () => llmConfig.value.customEndpoint || '',
+  set: (val) => {
+    llmConfig.value.customEndpoint = val;
+    llmConfigStorage.set(llmConfig.value);
+  }
+});
+
+const customModel = computed({
+  get: () => llmConfig.value.customModel || '',
+  set: (val) => {
+    llmConfig.value.customModel = val;
+    llmConfigStorage.set(llmConfig.value);
+  }
+});
+
+async function handleSkipPreviewChange(val: boolean) {
+  await settingsStore.setSkipPreview(val);
+}
+
+async function handleMaxHistoryCountChange(event: Event) {
+  const target = event.target as HTMLInputElement;
+  const value = parseInt(target.value, 10);
+  if (!isNaN(value) && value >= 10 && value <= 100) {
+    await settingsStore.setMaxHistoryCount(value);
+  }
+}
+
+async function handleReset() {
   if (confirm(t('settings.resetConfirm'))) {
-    Object.assign(appSettings.value, DEFAULT_APP_SETTINGS);
-    Object.assign(userConfig.value, DEFAULT_USER_CONFIG);
+    llmConfig.value = { ...DEFAULT_LLM_CONFIG };
+    await llmConfigStorage.set(llmConfig.value);
+    await settingsStore.resetSettings();
     showSavedMessage.value = true;
     setTimeout(() => {
       showSavedMessage.value = false;
-    }, 2000);
+    }, 1500);
   }
 }
+
+onMounted(async () => {
+  llmConfig.value = await llmConfigStorage.get();
+  unwatchLLMConfig = llmConfigStorage.watch((newValue) => {
+    llmConfig.value = newValue;
+  });
+});
 </script>
 
 <style scoped>

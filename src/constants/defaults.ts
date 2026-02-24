@@ -1,9 +1,9 @@
-import type { UserConfig, AppSettings } from '../types/storage';
+import type { LLMConfig, AppSettings } from '../types/storage';
 
 /**
  * 默认用户配置
  */
-export const DEFAULT_USER_CONFIG: UserConfig = {
+export const DEFAULT_LLM_CONFIG: LLMConfig = {
   apiKey: '',
   apiProvider: 'huggingface',
   customEndpoint: '',

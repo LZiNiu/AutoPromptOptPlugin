@@ -5,10 +5,11 @@
         {{ template ? t('templates.editTemplate') : t('templates.addTemplate') }}
       </h2>
       
-      <form @submit.prevent="handleSubmit" class="form">
+      <form id="template-form" @submit.prevent="handleSubmit" class="form">
         <div class="form-group">
           <label class="form-label">{{ t('templates.templateTitle') }}</label>
           <input
+            id="template-title"
             v-model="formData.title"
             type="text"
             :placeholder="t('templates.templateTitlePlaceholder')"
@@ -17,26 +18,20 @@
           />
         </div>
 
-        <div class="form-group">
+        <div class="form-group form-group-compact">
           <label class="form-label">{{ t('templates.templateCategory') }}</label>
-          <input
+          <Combobox
             v-model="formData.category"
-            type="text"
-            list="categories"
+            :options="availableCategories"
             :placeholder="t('templates.templateCategoryPlaceholder')"
-            class="form-input"
-            required
+            class="form-input-compact"
           />
-          <datalist id="categories">
-            <option v-for="category in availableCategories" :key="category" :value="category">
-              {{ category }}
-            </option>
-          </datalist>
         </div>
 
         <div class="form-group">
           <label class="form-label">{{ t('templates.templateContent') }}</label>
           <textarea
+            id="template-content"
             v-model="formData.content"
             :placeholder="t('templates.templateContentPlaceholder')"
             class="form-textarea"
@@ -64,6 +59,7 @@ import { useI18n } from 'vue-i18n';
 import { useTemplatesStore } from '@/stores/templates';
 import type { PromptTemplate } from '@/types/storage';
 import { DEFAULT_TEMPLATE_CATEGORIES } from '@/constants/defaults';
+import Combobox from '@/components/common/Combobox.vue';
 
 const { t } = useI18n();
 const templatesStore = useTemplatesStore();
@@ -157,6 +153,13 @@ function handleSubmit() {
   gap: 8px;
 }
 
+.form-group-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 400px;
+}
+
 .form-label {
   font-size: 14px;
   font-weight: 500;
@@ -173,6 +176,10 @@ function handleSubmit() {
   background-color: white;
   transition: border-color 0.2s;
   font-family: inherit;
+}
+
+.form-input-compact {
+  width: 100%;
 }
 
 .form-input:hover,

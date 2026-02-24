@@ -1,6 +1,6 @@
 <template>
   <select
-    :value="appSettings.language"
+    :value="settingsStore.language"
     @change="handleLanguageChange"
     class="language-switcher"
   >
@@ -16,18 +16,18 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
-import { useAppSettings } from '@/utils/storage';
+import { useSettingsStore } from '@/stores';
 import { SUPPORTED_LANGUAGES } from '@/constants/defaults';
 
 const { locale } = useI18n();
-const appSettings = useAppSettings();
+const settingsStore = useSettingsStore();
 const supportedLanguages = SUPPORTED_LANGUAGES;
 
-function handleLanguageChange(event: Event) {
+async function handleLanguageChange(event: Event) {
   const target = event.target as HTMLSelectElement;
   const newLang = target.value as 'zh-CN' | 'en';
   locale.value = newLang;
-  appSettings.value.language = newLang;
+  await settingsStore.setLanguage(newLang);
 }
 </script>
 

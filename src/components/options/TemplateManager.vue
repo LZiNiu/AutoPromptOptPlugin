@@ -9,7 +9,7 @@
         <button @click="handleExport" class="btn btn-secondary">
           {{ t('templates.export') }}
         </button>
-        <button @click="showForm = true" class="btn btn-primary">
+        <button @click="handleAddTemplate" class="btn btn-primary">
           {{ t('templates.addTemplate') }}
         </button>
       </div>
@@ -100,6 +100,11 @@ const editingTemplate = ref<PromptTemplate | undefined>();
 
 function handleEdit(template: PromptTemplate) {
   editingTemplate.value = template;
+  showForm.value = true;
+}
+
+function handleAddTemplate() {
+  editingTemplate.value = undefined;
   showForm.value = true;
 }
 

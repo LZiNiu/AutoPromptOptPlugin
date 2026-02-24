@@ -18,7 +18,6 @@ export default defineContentScript({
   ],
   main() {
     console.log('[AutoPromptOpt] Content script loaded');
-    console.log('[AutoPromptOpt] Current URL:', window.location.href);
 
     createInjector();
   },

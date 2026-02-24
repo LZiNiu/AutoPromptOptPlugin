@@ -1,22 +1,54 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { Ref } from 'vue';
 import type { OptimizeHistory } from '@/types/storage';
-import {
-  useOptimizeHistory as useOptimizeHistoryStorage,
-  addOptimizeHistory,
-  clearOptimizeHistory,
-} from '@/utils/storage';
+import { optimizeHistory } from '@/utils/storage';
 
 /**
  * 历史记录 Store
- * 管理优化历史记录状态
+ * 管理优化历史记录状态，业务变量与 storage 同步
  */
 export const useHistoryStore = defineStore('history', () => {
-  const storageHistory = useOptimizeHistoryStorage() as Ref<OptimizeHistory[]>;
-  const histories = ref<OptimizeHistory[]>(storageHistory.value);
+  // 业务响应式变量
+  const histories = ref<OptimizeHistory[]>([]);
   const searchQuery = ref('');
+  const isLoaded = ref(false);
 
+  // 存储监听取消函数
+  let unwatchStorage: (() => void) | null = null;
+
+  /**
+   * 初始化 Store：从 storage 加载数据并监听变化
+   */
+  async function initialize() {
+    if (isLoaded.value) return;
+
+    histories.value = await optimizeHistory.get();
+    isLoaded.value = true;
+
+    // 监听外部变化（其他页面修改 storage）
+    unwatchStorage = optimizeHistory.watch((newValue) => {
+      histories.value = newValue;
+    });
+  }
+
+  /**
+   * 清理资源：取消 storage 监听
+   */
+  function cleanup() {
+    if (unwatchStorage) {
+      unwatchStorage();
+      unwatchStorage = null;
+    }
+  }
+
+  /**
+   * 同步数据到 storage
+   */
+  async function syncToStorage() {
+    await optimizeHistory.set([...histories.value]);
+  }
+
+  // 计算属性：过滤后的历史记录
   const filteredHistories = computed(() => {
     if (!searchQuery.value) {
       return histories.value;
@@ -30,58 +62,85 @@ export const useHistoryStore = defineStore('history', () => {
     );
   });
 
+  // 计算属性：最近的历史记录
   const recentHistories = computed(() => {
     return histories.value.slice(0, 10);
   });
 
+  /**
+   * 根据 ID 获取历史记录
+   */
   const getHistoryById = (id: string) => {
     return histories.value.find((history) => history.id === id);
   };
 
-  const addHistory = (history: Omit<OptimizeHistory, 'id' | 'timestamp'>) => {
+  /**
+   * 生成唯一 ID
+   */
+  function generateId(): string {
+    return `history-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * 添加历史记录
+   */
+  async function addHistory(history: Omit<OptimizeHistory, 'id' | 'timestamp'>) {
     const newHistory: OptimizeHistory = {
       ...history,
       id: generateId(),
       timestamp: Date.now(),
     };
     histories.value.unshift(newHistory);
-    addOptimizeHistory(newHistory);
-  };
+    await syncToStorage();
+  }
 
-  const deleteHistory = (id: string) => {
+  /**
+   * 删除历史记录
+   */
+  async function deleteHistory(id: string) {
     const index = histories.value.findIndex((history) => history.id === id);
     if (index !== -1) {
       histories.value.splice(index, 1);
-      clearOptimizeHistory(id);
+      await syncToStorage();
     }
-  };
+  }
 
-  const clearAllHistories = () => {
+  /**
+   * 清空所有历史记录
+   */
+  async function clearAllHistories() {
     histories.value = [];
-    clearOptimizeHistory();
-  };
+    await syncToStorage();
+  }
 
-  const clearOldHistories = (days: number) => {
+  /**
+   * 清除指定天数前的历史记录
+   */
+  async function clearOldHistories(days: number) {
     const cutoffTime = Date.now() - days * 24 * 60 * 60 * 1000;
-    const oldHistories = histories.value.filter(
-      (history) => history.timestamp < cutoffTime
-    );
-    oldHistories.forEach((history) => {
-      clearOptimizeHistory(history.id);
-    });
     histories.value = histories.value.filter((history) => history.timestamp >= cutoffTime);
-  };
+    await syncToStorage();
+  }
 
+  /**
+   * 获取指定站点的历史记录
+   */
   const getHistoriesBySite = (siteId: string) => {
     return histories.value.filter((history) => history.siteId === siteId);
   };
 
+  /**
+   * 获取指定日期范围内的历史记录
+   */
   const getHistoriesByDateRange = (startTime: number, endTime: number) => {
     return histories.value.filter(
       (history) => history.timestamp >= startTime && history.timestamp <= endTime
     );
   };
 
+  /**
+   * 获取统计数据
+   */
   const getStatistics = () => {
     const totalOptimizations = histories.value.length;
     const siteStats: Record<string, number> = {};
@@ -105,16 +164,15 @@ export const useHistoryStore = defineStore('history', () => {
     };
   };
 
-  function generateId(): string {
-    return `history-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  }
-
   return {
     histories,
     searchQuery,
+    isLoaded,
     filteredHistories,
     recentHistories,
     getHistoryById,
+    initialize,
+    cleanup,
     addHistory,
     deleteHistory,
     clearAllHistories,

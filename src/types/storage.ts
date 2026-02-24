@@ -24,9 +24,9 @@ export interface ElementSelectorInfo {
 export type ApiProvider = 'huggingface' | 'replicate' | 'custom';
 
 /**
- * 用户配置接口
+ * 大模型调用配置接口
  */
-export interface UserConfig {
+export interface LLMConfig {
   apiKey: string;
   apiProvider: ApiProvider;
   customEndpoint?: string;
@@ -71,7 +71,7 @@ export interface AppSettings {
  * 存储数据接口
  */
 export interface StorageData {
-  userConfig: UserConfig;
+  userConfig: LLMConfig;
   promptTemplates: PromptTemplate[];
   optimizeHistory: OptimizeHistory[];
   appSettings: AppSettings;

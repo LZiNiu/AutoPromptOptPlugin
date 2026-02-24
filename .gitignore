@@ -24,6 +24,7 @@ web-ext.config.ts
 *.njsproj
 *.sln
 *.sw?
+.trae
 
 # document for ai and llm document output
 docs

@@ -1,120 +1,171 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useAppSettings, useUserConfig, useOptimizeHistory } from '@/utils/storage';
+import { useSettingsStore, useHistoryStore } from '@/stores';
+import { llmConfig as llmConfigStorage } from '@/utils/storage';
+import type { LLMConfig } from '@/types/storage';
 import ApiKeyInput from '@/components/common/ApiKeyInput.vue';
 
 const { t } = useI18n();
-const appSettings = useAppSettings();
-const userConfig = useUserConfig();
-const optimizeHistory = useOptimizeHistory();
+const settingsStore = useSettingsStore();
+const historyStore = useHistoryStore();
+
+const isLoading = ref(true);
+const llmConfig = ref<LLMConfig>({
+  apiKey: '',
+  apiProvider: 'huggingface',
+  customEndpoint: '',
+  customModel: '',
+});
+
+let unwatchLLMConfig: (() => void) | null = null;
 
 const skipPreview = computed({
-  get: () => appSettings.value.skipPreview,
-  set: (val) => { appSettings.value.skipPreview = val; }
+  get: () => settingsStore.skipPreview,
+  set: (val) => { settingsStore.setSkipPreview(val); }
 });
 
 const apiKey = computed({
-  get: () => userConfig.value.apiKey,
-  set: (val) => { userConfig.value.apiKey = val; }
+  get: () => llmConfig.value.apiKey,
+  set: (val) => { 
+    llmConfig.value.apiKey = val;
+    llmConfigStorage.set(llmConfig.value);
+  }
 });
 
 const apiProvider = computed({
-  get: () => userConfig.value.apiProvider,
-  set: (val) => { userConfig.value.apiProvider = val; }
+  get: () => llmConfig.value.apiProvider,
+  set: (val) => { 
+    llmConfig.value.apiProvider = val;
+    llmConfigStorage.set(llmConfig.value);
+  }
 });
 
 const customEndpoint = computed({
-  get: () => userConfig.value.customEndpoint || '',
-  set: (val) => { userConfig.value.customEndpoint = val; }
+  get: () => llmConfig.value.customEndpoint || '',
+  set: (val) => { 
+    llmConfig.value.customEndpoint = val;
+    llmConfigStorage.set(llmConfig.value);
+  }
 });
 
 const customModel = computed({
-  get: () => userConfig.value.customModel || '',
-  set: (val) => { userConfig.value.customModel = val; }
+  get: () => llmConfig.value.customModel || '',
+  set: (val) => { 
+    llmConfig.value.customModel = val;
+    llmConfigStorage.set(llmConfig.value);
+  }
 });
 
-const totalOptimizations = computed(() => optimizeHistory.value.length);
+const totalOptimizations = computed(() => historyStore.histories.length);
 
 function openOptionsPage() {
   browser.tabs.create({
     url: browser.runtime.getURL('/options.html'),
   });
 }
+
+onMounted(async () => {
+  await Promise.all([
+    settingsStore.initialize(),
+    historyStore.initialize(),
+  ]);
+  
+  llmConfig.value = await llmConfigStorage.get();
+  
+  unwatchLLMConfig = llmConfigStorage.watch((newValue) => {
+    llmConfig.value = newValue;
+  });
+  
+  isLoading.value = false;
+});
+
+onUnmounted(() => {
+  settingsStore.cleanup();
+  historyStore.cleanup();
+  if (unwatchLLMConfig) {
+    unwatchLLMConfig();
+  }
+});
 </script>
 
 <template>
   <div class="popup-container">
-    <div class="popup-header">
-      <div class="logo">
-        <span class="logo-icon">✨</span>
-        <span class="logo-text">AutoPromptOpt</span>
-      </div>
+    <div v-if="isLoading" class="loading-state">
+      <div class="loading-spinner"></div>
     </div>
-
-    <div class="popup-content">
-      <div class="setting-section">
-        <label class="section-label">{{ t('settings.apiKey') }}</label>
-        <ApiKeyInput v-model="apiKey" compact />
-      </div>
-
-      <div class="setting-section">
-        <label class="section-label">{{ t('settings.apiProvider') }}</label>
-        <div class="select-wrapper">
-          <select v-model="apiProvider" class="form-select">
-            <option value="huggingface">{{ t('settings.apiProviderHuggingface') }}</option>
-            <option value="replicate">{{ t('settings.apiProviderReplicate') }}</option>
-            <option value="custom">{{ t('settings.apiProviderCustom') }}</option>
-          </select>
-          <span class="select-arrow">▼</span>
+    <template v-else>
+      <div class="popup-header">
+        <div class="logo">
+          <span class="logo-icon">✨</span>
+          <span class="logo-text">AutoPromptOpt</span>
         </div>
       </div>
 
-      <div v-if="apiProvider === 'custom'" class="setting-section">
-        <label class="section-label">{{ t('settings.customEndpoint') }}</label>
-        <input
-          v-model="customEndpoint"
-          type="text"
-          :placeholder="t('settings.customEndpointPlaceholder')"
-          class="form-input"
-        />
-      </div>
+      <div class="popup-content">
+        <div class="setting-section">
+          <label class="section-label">{{ t('settings.apiKey') }}</label>
+          <ApiKeyInput v-model="apiKey" compact />
+        </div>
 
-      <div v-if="apiProvider === 'custom'" class="setting-section">
-        <label class="section-label">{{ t('settings.customModel') }}</label>
-        <input
-          v-model="customModel"
-          type="text"
-          :placeholder="t('settings.customModelPlaceholder')"
-          class="form-input"
-        />
-      </div>
-
-      <div class="quick-setting">
-        <label class="setting-label">
-          <input 
-            type="checkbox" 
-            v-model="skipPreview"
-            class="setting-checkbox"
-          />
-          <span>{{ t('settings.skipPreview') }}</span>
-        </label>
-      </div>
-
-      <div class="stats-info">
-        <div class="stat-item">
-          <span class="stat-icon">📊</span>
-          <div class="stat-content">
-            <span class="stat-value">{{ totalOptimizations }}</span>
-            <span class="stat-label">{{ t('history.totalOptimizations') }}</span>
+        <div class="setting-section">
+          <label class="section-label">{{ t('settings.apiProvider') }}</label>
+          <div class="select-wrapper">
+            <select v-model="apiProvider" class="form-select">
+              <option value="huggingface">{{ t('settings.apiProviderHuggingface') }}</option>
+              <option value="replicate">{{ t('settings.apiProviderReplicate') }}</option>
+              <option value="custom">{{ t('settings.apiProviderCustom') }}</option>
+            </select>
+            <span class="select-arrow">▼</span>
           </div>
         </div>
-      </div>
 
-      <button @click="openOptionsPage" class="btn btn-settings">
-        ⚙️ {{ t('settings.title') }}
-      </button>
-    </div>
+        <div v-if="apiProvider === 'custom'" class="setting-section">
+          <label class="section-label">{{ t('settings.customEndpoint') }}</label>
+          <input
+            v-model="customEndpoint"
+            type="text"
+            :placeholder="t('settings.customEndpointPlaceholder')"
+            class="form-input"
+          />
+        </div>
+
+        <div v-if="apiProvider === 'custom'" class="setting-section">
+          <label class="section-label">{{ t('settings.customModel') }}</label>
+          <input
+            v-model="customModel"
+            type="text"
+            :placeholder="t('settings.customModelPlaceholder')"
+            class="form-input"
+          />
+        </div>
+
+        <div class="quick-setting">
+          <label class="setting-label">
+            <input 
+              type="checkbox" 
+              v-model="skipPreview"
+              class="setting-checkbox"
+            />
+            <span>{{ t('settings.skipPreview') }}</span>
+          </label>
+        </div>
+
+        <div class="stats-info">
+          <div class="stat-item">
+            <span class="stat-icon">📊</span>
+            <div class="stat-content">
+              <span class="stat-value">{{ totalOptimizations }}</span>
+              <span class="stat-label">{{ t('history.totalOptimizations') }}</span>
+            </div>
+          </div>
+        </div>
+
+        <button @click="openOptionsPage" class="btn btn-settings">
+          ⚙️ {{ t('settings.title') }}
+        </button>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -124,6 +175,28 @@ function openOptionsPage() {
   min-height: 420px;
   background: white;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #14b8a6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .popup-header {
