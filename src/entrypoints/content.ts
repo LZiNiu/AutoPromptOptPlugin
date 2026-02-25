@@ -1,4 +1,51 @@
-import { createInjector } from '../utils/injector';
+import { injectOptimizeButton, findSingleInputElement, removeAllInjectedButtons, type InjectContext, type InjectInstance } from '@/utils/injector';
+import { storage } from '#imports';
+import type { LLMConfig, UserPromptConfig, PromptTemplate, AppSettings } from '@/types/storage';
+
+// 目标网站配置
+const SITE_CONFIGS: Record<string, { inputSelector: string; buttonContainerSelector?: string }> = {
+  'qwen.ai': {
+    inputSelector: 'textarea[class~="message-input-textarea"], textarea[placeholder*="有什么我能帮您的吗？"]',
+    buttonContainerSelector: 'div[class~="message-input-container-area"]',
+  },
+  'z.ai': {
+    inputSelector: 'textarea[placeholder*="什么"], textarea[placeholder*="输入"]',
+    buttonContainerSelector: '',
+  },
+  'qianwen.aliyun.com': {
+    inputSelector: 'textarea[placeholder*="提问"], #chat-input, .chat-input textarea',
+    buttonContainerSelector: '.chat-input-actions, .input-actions, [class*="send-box"]',
+  },
+  'tongyi.aliyun.com': {
+    inputSelector: 'textarea[placeholder*="提问"], #chat-input, .chat-input textarea',
+    buttonContainerSelector: '.chat-input-actions, .input-actions',
+  },
+  'chatgpt.com': {
+    inputSelector: 'textarea[placeholder*="Message"], #prompt-textarea, [data-testid*="text-input"]',
+    buttonContainerSelector: '[class*="send-button"], [class*="submit"]',
+  },
+  'chat.openai.com': {
+    inputSelector: 'textarea[placeholder*="Message"], #prompt-textarea',
+    buttonContainerSelector: '[class*="send-button"], [class*="submit"]',
+  },
+  'claude.ai': {
+    inputSelector: '[contenteditable="true"], .ProseMirror, [placeholder*="Message"]',
+    buttonContainerSelector: '[class*="send-button"], [class*="submit"]',
+  },
+  'chatglm.cn': {
+    inputSelector: 'textarea[placeholder*="输入"], .chat-input textarea, [class*="input-box"] textarea',
+    buttonContainerSelector: '.chat-input-actions, [class*="send-btn"]',
+  },
+};
+
+// 注入实例数组
+let injectInstances: InjectInstance[] = [];
+
+// 当前上下文
+let currentContext: InjectContext | null = null;
+
+// 存储监听取消函数
+let unwatchStorage: (() => void) | null = null;
 
 export default defineContentScript({
   matches: [
@@ -16,9 +63,296 @@ export default defineContentScript({
     '*://claude.ai/*',
     '*://chatglm.cn/*',
   ],
-  main() {
-    console.log('[AutoPromptOpt] Content script loaded');
+  main(ctx) {
+    console.log('[AutoPromptOpt] Content script loaded, context valid:', ctx.isValid);
 
-    createInjector();
+    // 检查上下文是否有效
+    if (!ctx.isValid) {
+      console.error('[AutoPromptOpt] Context is invalid, cannot proceed');
+      return;
+    }
+
+    // 初始化
+    init(ctx);
+
+    // 监听存储变化
+    watchStorageChanges(ctx);
+
+    // 监听页面变化（SPA 路由变化）
+    observePageChanges(ctx);
   },
 });
+
+/**
+ * 初始化内容脚本
+ */
+async function init(ctx: ContentScriptContext): Promise<void> {
+  console.log('[AutoPromptOpt] 开始初始化...');
+
+  try {
+    // 加载配置
+    await loadContext();
+    console.log('[AutoPromptOpt] 配置加载完成:', currentContext ? '成功' : '失败');
+
+    // 注入按钮
+    injectButtons();
+  } catch (error) {
+    console.error('[AutoPromptOpt] 初始化失败:', error);
+  }
+}
+
+/**
+ * 加载注入上下文
+ */
+async function loadContext(): Promise<void> {
+  console.log('[AutoPromptOpt] 开始加载存储数据...');
+
+  try {
+    // 使用 browser.storage API 直接访问
+    const llmData = await storage.getItem<LLMConfig>('local:llmConfig');
+    const promptData = await storage.getItem<UserPromptConfig>('local:userPromptConfig');
+    const templatesData = await storage.getItem<PromptTemplate[]>('local:promptTemplates');
+    const settingsData = await storage.getItem<AppSettings>('local:appSettings');
+
+    console.log('[AutoPromptOpt] 存储数据加载结果:', {
+      llm: llmData ? '已加载' : '未找到',
+      prompt: promptData ? '已加载' : '未找到',
+      templates: templatesData ? `已加载 ${templatesData.length} 个模板` : '未找到',
+      settings: settingsData ? '已加载' : '未找到',
+    });
+
+    currentContext = {
+      llmConfig: llmData || { apiKey: '', providerId: 'custom', endpoint: '', model: '' },
+      userPromptConfig: promptData || { selectedPromptId: 'general-v1', customPrompts: [], builtInOverrides: {} },
+      templates: templatesData || [],
+      skipPreview: settingsData?.skipPreview || false,
+    };
+
+    console.log('[AutoPromptOpt] 上下文加载完成');
+  } catch (error) {
+    console.error('[AutoPromptOpt] 加载存储数据失败:', error);
+    // 使用默认配置
+    currentContext = {
+      llmConfig: { apiKey: '', providerId: 'custom', endpoint: '', model: '' },
+      userPromptConfig: { selectedPromptId: 'general-v1', customPrompts: [], builtInOverrides: {} },
+      templates: [],
+      skipPreview: false,
+    };
+  }
+}
+
+/**
+ * 注入按钮到页面
+ */
+function injectButtons(): void {
+  console.log('[AutoPromptOpt] 开始注入按钮...');
+
+  // 先清理已有的按钮
+  cleanup();
+
+  const hostname = window.location.hostname;
+  console.log('[AutoPromptOpt] 当前主机名:', hostname);
+
+  const config = findSiteConfig(hostname);
+
+  if (!config) {
+    console.log('[AutoPromptOpt] 未找到站点配置:', hostname);
+    return;
+  }
+
+  console.log('[AutoPromptOpt] 找到站点配置:', config);
+
+  if (!currentContext) {
+    console.log('[AutoPromptOpt] 上下文未加载，无法注入');
+    return;
+  }
+
+  // 只查找选择器指定的第一个输入框
+  const input = findSingleInputElement(config.inputSelector);
+
+  if (!input) {
+    console.log('[AutoPromptOpt] 未找到输入框元素，选择器:', config.inputSelector);
+    return;
+  }
+
+  console.log('[AutoPromptOpt] 找到输入框元素，开始注入');
+  const instance = injectOptimizeButton(input, config, currentContext);
+  injectInstances.push(instance);
+}
+
+/**
+ * 查找站点配置
+ * @param hostname 主机名
+ * @returns 站点配置
+ */
+function findSiteConfig(hostname: string): { inputSelector: string; buttonContainerSelector?: string } | null {
+  // 直接匹配
+  if (SITE_CONFIGS[hostname]) {
+    return SITE_CONFIGS[hostname];
+  }
+
+  // 尝试匹配子域名
+  for (const [domain, config] of Object.entries(SITE_CONFIGS)) {
+    if (hostname.endsWith(domain)) {
+      return config;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * 清理注入的按钮
+ */
+function cleanup(): void {
+  console.log('[AutoPromptOpt] 清理注入的按钮...');
+  injectInstances.forEach(instance => instance.cleanup());
+  injectInstances = [];
+  removeAllInjectedButtons();
+}
+
+/**
+ * 更新所有注入实例的上下文
+ */
+function updateInjectInstances(): void {
+  if (!currentContext) return;
+
+  console.log('[AutoPromptOpt] 更新所有注入实例的上下文...');
+  injectInstances.forEach(instance => {
+    instance.updateContext(currentContext!);
+  });
+}
+
+/**
+ * 监听存储变化
+ */
+function watchStorageChanges(ctx: ContentScriptContext): void {
+  console.log('[AutoPromptOpt] 开始监听存储变化...');
+
+  // 如果之前有监听，先取消
+  if (unwatchStorage) {
+    unwatchStorage();
+    unwatchStorage = null;
+  }
+
+  try {
+    // 使用 storage.watch 监听所有相关键的变化
+    const unwatchPromptTemplates = storage.watch<PromptTemplate[]>('local:promptTemplates', (newTemplates, oldTemplates) => {
+      console.log('[AutoPromptOpt] 模板数据变化:', {
+        new: newTemplates ? `${newTemplates.length} 个模板` : 'null',
+        old: oldTemplates ? `${oldTemplates.length} 个模板` : 'null',
+      });
+
+      if (ctx.isInvalid) {
+        console.log('[AutoPromptOpt] 上下文已失效，忽略存储变化');
+        return;
+      }
+
+      if (currentContext && newTemplates) {
+        currentContext.templates = newTemplates;
+        console.log('[AutoPromptOpt] 模板数据已更新到上下文');
+        // 更新所有注入实例
+        updateInjectInstances();
+      }
+    });
+
+    const unwatchLLMConfig = storage.watch<LLMConfig>('local:llmConfig', (newConfig) => {
+      console.log('[AutoPromptOpt] LLM 配置变化:', newConfig ? '已更新' : 'null');
+      if (ctx.isInvalid) return;
+      if (currentContext && newConfig) {
+        currentContext.llmConfig = newConfig;
+        // 更新所有注入实例
+        updateInjectInstances();
+      }
+    });
+
+    const unwatchUserPromptConfig = storage.watch<UserPromptConfig>('local:userPromptConfig', (newConfig) => {
+      console.log('[AutoPromptOpt] 提示词配置变化:', newConfig ? '已更新' : 'null');
+      if (ctx.isInvalid) return;
+      if (currentContext && newConfig) {
+        currentContext.userPromptConfig = newConfig;
+        // 更新所有注入实例（策略选择器会重新渲染）
+        updateInjectInstances();
+      }
+    });
+
+    const unwatchAppSettings = storage.watch<AppSettings>('local:appSettings', (newSettings) => {
+      console.log('[AutoPromptOpt] 应用设置变化:', newSettings ? '已更新' : 'null');
+      if (ctx.isInvalid) return;
+      if (currentContext && newSettings) {
+        currentContext.skipPreview = newSettings.skipPreview;
+        // 更新所有注入实例
+        updateInjectInstances();
+      }
+    });
+
+    // 保存取消监听函数
+    unwatchStorage = () => {
+      unwatchPromptTemplates();
+      unwatchLLMConfig();
+      unwatchUserPromptConfig();
+      unwatchAppSettings();
+      console.log('[AutoPromptOpt] 已取消存储监听');
+    };
+
+    console.log('[AutoPromptOpt] 存储监听已设置');
+  } catch (error) {
+    console.error('[AutoPromptOpt] 设置存储监听失败:', error);
+  }
+}
+
+/**
+ * 监听页面变化
+ */
+function observePageChanges(ctx: ContentScriptContext): void {
+  let lastUrl = location.href;
+
+  const observer = new MutationObserver(() => {
+    if (ctx.isInvalid) {
+      console.log('[AutoPromptOpt] 上下文已失效，停止观察');
+      observer.disconnect();
+      return;
+    }
+
+    const currentUrl = location.href;
+    if (currentUrl !== lastUrl) {
+      console.log('[AutoPromptOpt] URL 变化:', lastUrl, '->', currentUrl);
+      lastUrl = currentUrl;
+      // URL 变化，重新注入
+      setTimeout(() => injectButtons(), 500);
+    } else {
+      // 检查是否有新的输入框出现
+      checkForNewInputs();
+    }
+  });
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
+
+  console.log('[AutoPromptOpt] 页面变化观察已启动');
+}
+
+/**
+ * 检查是否有新的输入框
+ * 只检查选择器指定的第一个输入框
+ */
+function checkForNewInputs(): void {
+  const hostname = window.location.hostname;
+  const config = findSiteConfig(hostname);
+
+  if (!config || !currentContext) return;
+
+  // 如果已经注入过，不再重复检查
+  if (injectInstances.length > 0) return;
+
+  // 只查找选择器指定的第一个输入框
+  const input = findSingleInputElement(config.inputSelector);
+
+  if (input) {
+    console.log('[AutoPromptOpt] 发现新的输入框，注入按钮');
+    const instance = injectOptimizeButton(input, config, currentContext);
+    injectInstances.push(instance);
+  }
+}

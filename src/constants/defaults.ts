@@ -5,9 +5,9 @@ import type { LLMConfig, AppSettings } from '../types/storage';
  */
 export const DEFAULT_LLM_CONFIG: LLMConfig = {
   apiKey: '',
-  apiProvider: 'huggingface',
-  customEndpoint: '',
-  customModel: '',
+  providerId: 'openai',
+  endpoint: '',
+  model: '',
 };
 
 /**
@@ -74,25 +74,99 @@ export const DEFAULT_TEMPLATES = [
 ];
 
 /**
- * API 提供商配置
+ * 预置 API 提供商配置列表
  */
-export const API_PROVIDERS = [
+export const PRESET_API_PROVIDERS = [
   {
-    value: 'huggingface',
-    label: 'Hugging Face',
-    description: '使用 Hugging Face Inference API',
+    id: 'openai',
+    name: 'OpenAI',
+    defaultEndpoint: 'https://api.openai.com/v1',
+    defaultModel: 'gpt-4o-mini',
+    docsUrl: 'https://platform.openai.com/docs',
+    keyPlaceholder: 'sk-...',
   },
   {
-    value: 'replicate',
-    label: 'Replicate',
-    description: '使用 Replicate API',
+    id: 'anthropic',
+    name: 'Anthropic',
+    defaultEndpoint: 'https://api.anthropic.com/v1',
+    defaultModel: 'claude-3-haiku-20240307',
+    docsUrl: 'https://docs.anthropic.com',
+    keyPlaceholder: 'sk-ant-...',
   },
   {
-    value: 'custom',
-    label: '自定义',
-    description: '使用自定义 API 端点',
+    id: 'aliyun-bailian',
+    name: '阿里云百炼',
+    defaultEndpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    defaultModel: 'qwen-max',
+    docsUrl: 'https://help.aliyun.com/document_detail/611472.html',
+    keyPlaceholder: 'sk-...',
+  },
+  {
+    id: 'modelscope',
+    name: 'ModelScope',
+    defaultEndpoint: 'https://api-inference.modelscope.cn/v1',
+    defaultModel: 'Qwen/Qwen2.5-72B-Instruct',
+    docsUrl: 'https://modelscope.cn/docs',
+    keyPlaceholder: 'ms-...',
+  },
+  {
+    id: 'siliconflow',
+    name: 'SiliconFlow',
+    defaultEndpoint: 'https://api.siliconflow.cn/v1',
+    defaultModel: 'Qwen/Qwen2.5-7B-Instruct',
+    docsUrl: 'https://docs.siliconflow.cn',
+    keyPlaceholder: 'sk-...',
+  },
+  {
+    id: 'volcengine',
+    name: '火山引擎',
+    defaultEndpoint: 'https://ark.cn-beijing.volces.com/api/v3',
+    defaultModel: 'doubao-pro-32k',
+    docsUrl: 'https://www.volcengine.com/docs/82379',
+    keyPlaceholder: '...',
+  },
+  {
+    id: 'gemini',
+    name: 'Google Gemini',
+    defaultEndpoint: 'https://generativelanguage.googleapis.com/v1beta',
+    defaultModel: 'gemini-1.5-flash',
+    docsUrl: 'https://ai.google.dev/docs',
+    keyPlaceholder: '...',
+  },
+  {
+    id: 'deepseek',
+    name: 'Deepseek',
+    defaultEndpoint: 'https://api.deepseek.com/v1',
+    defaultModel: 'deepseek-chat',
+    docsUrl: 'https://platform.deepseek.com/docs',
+    keyPlaceholder: 'sk-...',
+  },
+  {
+    id: 'zhipu',
+    name: '智谱AI',
+    defaultEndpoint: 'https://open.bigmodel.cn/api/paas/v4',
+    defaultModel: 'glm-4-flash',
+    docsUrl: 'https://open.bigmodel.cn/dev/howuse/glm-4',
+    keyPlaceholder: '...',
+  },
+  {
+    id: 'custom',
+    name: '自定义',
+    defaultEndpoint: '',
+    defaultModel: '',
+    docsUrl: '',
+    keyPlaceholder: '请输入 API Key',
   },
 ] as const;
+
+/**
+ * 根据 providerId 获取提供商配置
+ * @param providerId 提供商 ID
+ * @returns 提供商配置，未找到返回 custom
+ */
+export function getProviderConfig(providerId: string) {
+  return PRESET_API_PROVIDERS.find(p => p.id === providerId) || PRESET_API_PROVIDERS[PRESET_API_PROVIDERS.length - 1];
+}
 
 /**
  * 支持的语言列表

@@ -6,8 +6,10 @@ import type {
   OptimizeHistory,
   AppSettings,
   UserSelectorConfig,
+  UserPromptConfig,
 } from '@/types/storage';
 import { DEFAULT_LLM_CONFIG, DEFAULT_APP_SETTINGS, DEFAULT_TEMPLATES } from '@/constants/defaults';
+import { DEFAULT_USER_PROMPT_CONFIG } from './prompts';
 
 // ==================== Storage Items 定义 ====================
 
@@ -29,6 +31,10 @@ const appSettingsItem = storage.defineItem<AppSettings>('local:appSettings', {
 
 const userSelectorsItem = storage.defineItem<Record<string, UserSelectorConfig>>('local:userSelectors', {
   fallback: {},
+});
+
+const userPromptConfigItem = storage.defineItem<UserPromptConfig>('local:userPromptConfig', {
+  fallback: DEFAULT_USER_PROMPT_CONFIG,
 });
 
 // ==================== 通用操作函数 ====================
@@ -115,6 +121,11 @@ export const appSettings = createStorageAccessors(appSettingsItem, DEFAULT_APP_S
  */
 export const userSelectors = createStorageAccessors(userSelectorsItem, {});
 
+/**
+ * 用户提示词配置便捷访问器
+ */
+export const userPromptConfig = createStorageAccessors(userPromptConfigItem, DEFAULT_USER_PROMPT_CONFIG);
+
 // ==================== 特殊操作函数 ====================
 
 /**
@@ -170,6 +181,7 @@ export async function clearAllStorage(): Promise<void> {
     optimizeHistoryItem.removeValue(),
     appSettingsItem.removeValue(),
     userSelectorsItem.removeValue(),
+    userPromptConfigItem.removeValue(),
   ]);
 }
 
@@ -177,21 +189,23 @@ export async function clearAllStorage(): Promise<void> {
  * 导出存储数据
  */
 export async function exportStorageData(): Promise<Partial<StorageData>> {
-  const [llmConfig, templates, history, settings, selectors] =
+  const [llmConfigData, templates, history, settings, selectors, promptConfig] =
     await Promise.all([
       llmConfigItem.getValue(),
       promptTemplatesItem.getValue(),
       optimizeHistoryItem.getValue(),
       appSettingsItem.getValue(),
       userSelectorsItem.getValue(),
+      userPromptConfigItem.getValue(),
     ]);
 
   return {
-    userConfig: llmConfig || DEFAULT_LLM_CONFIG,
+    userConfig: llmConfigData || DEFAULT_LLM_CONFIG,
     promptTemplates: templates || DEFAULT_TEMPLATES,
     optimizeHistory: history || [],
     appSettings: settings || DEFAULT_APP_SETTINGS,
     userSelectors: selectors || {},
+    userPromptConfig: promptConfig || DEFAULT_USER_PROMPT_CONFIG,
   };
 }
 
@@ -206,6 +220,7 @@ export async function importStorageData(data: Partial<StorageData>): Promise<voi
   if (data.optimizeHistory) promises.push(optimizeHistoryItem.setValue(data.optimizeHistory));
   if (data.appSettings) promises.push(appSettingsItem.setValue(data.appSettings));
   if (data.userSelectors) promises.push(userSelectorsItem.setValue(data.userSelectors));
+  if (data.userPromptConfig) promises.push(userPromptConfigItem.setValue(data.userPromptConfig));
 
   await Promise.all(promises);
 }

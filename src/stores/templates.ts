@@ -17,20 +17,31 @@ export const useTemplatesStore = defineStore('templates', () => {
 
   // 存储监听取消函数
   let unwatchStorage: (() => void) | null = null;
+  let isInitializing = false;
 
   /**
    * 初始化 Store：从 storage 加载数据并监听变化
+   * 后台脚本已确保 storage 有默认值，这里直接读取即可
    */
   async function initialize() {
-    if (isLoaded.value) return;
+    if (isLoaded.value || isInitializing) return;
 
-    templates.value = await promptTemplates.get();
-    isLoaded.value = true;
+    isInitializing = true;
 
-    // 监听外部变化（其他页面修改 storage）
-    unwatchStorage = promptTemplates.watch((newValue) => {
-      templates.value = newValue;
-    });
+    try {
+      templates.value = await promptTemplates.get();
+      isLoaded.value = true;
+
+      // 监听外部变化（其他页面修改 storage）
+      if (unwatchStorage) {
+        unwatchStorage();
+      }
+      unwatchStorage = promptTemplates.watch((newValue) => {
+        templates.value = newValue;
+      });
+    } finally {
+      isInitializing = false;
+    }
   }
 
   /**

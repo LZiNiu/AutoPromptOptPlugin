@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n';
 import { useSettingsStore, useHistoryStore } from '@/stores';
 import { llmConfig as llmConfigStorage } from '@/utils/storage';
 import type { LLMConfig } from '@/types/storage';
+import { DEFAULT_LLM_CONFIG, PRESET_API_PROVIDERS, getProviderConfig } from '@/constants/defaults';
 import ApiKeyInput from '@/components/common/ApiKeyInput.vue';
 
 const { t } = useI18n();
@@ -11,12 +12,7 @@ const settingsStore = useSettingsStore();
 const historyStore = useHistoryStore();
 
 const isLoading = ref(true);
-const llmConfig = ref<LLMConfig>({
-  apiKey: '',
-  apiProvider: 'huggingface',
-  customEndpoint: '',
-  customModel: '',
-});
+const llmConfig = ref<LLMConfig>({ ...DEFAULT_LLM_CONFIG });
 
 let unwatchLLMConfig: (() => void) | null = null;
 
@@ -27,35 +23,30 @@ const skipPreview = computed({
 
 const apiKey = computed({
   get: () => llmConfig.value.apiKey,
-  set: (val) => { 
+  set: (val) => {
     llmConfig.value.apiKey = val;
     llmConfigStorage.set(llmConfig.value);
   }
 });
 
-const apiProvider = computed({
-  get: () => llmConfig.value.apiProvider,
-  set: (val) => { 
-    llmConfig.value.apiProvider = val;
+const providerId = computed({
+  get: () => llmConfig.value.providerId,
+  set: (val) => {
+    llmConfig.value.providerId = val;
+    const config = getProviderConfig(val);
+    if (val !== 'custom') {
+      llmConfig.value.endpoint = config.defaultEndpoint;
+      llmConfig.value.model = config.defaultModel;
+    }
     llmConfigStorage.set(llmConfig.value);
   }
 });
 
-const customEndpoint = computed({
-  get: () => llmConfig.value.customEndpoint || '',
-  set: (val) => { 
-    llmConfig.value.customEndpoint = val;
-    llmConfigStorage.set(llmConfig.value);
-  }
-});
+const isCustomProvider = computed(() => providerId.value === 'custom');
 
-const customModel = computed({
-  get: () => llmConfig.value.customModel || '',
-  set: (val) => { 
-    llmConfig.value.customModel = val;
-    llmConfigStorage.set(llmConfig.value);
-  }
-});
+const currentProvider = computed(() => getProviderConfig(providerId.value));
+
+const apiKeyPlaceholder = computed(() => currentProvider.value.keyPlaceholder);
 
 const totalOptimizations = computed(() => historyStore.histories.length);
 
@@ -104,38 +95,40 @@ onUnmounted(() => {
 
       <div class="popup-content">
         <div class="setting-section">
-          <label class="section-label">{{ t('settings.apiKey') }}</label>
-          <ApiKeyInput v-model="apiKey" compact />
-        </div>
-
-        <div class="setting-section">
           <label class="section-label">{{ t('settings.apiProvider') }}</label>
           <div class="select-wrapper">
-            <select v-model="apiProvider" class="form-select">
-              <option value="huggingface">{{ t('settings.apiProviderHuggingface') }}</option>
-              <option value="replicate">{{ t('settings.apiProviderReplicate') }}</option>
-              <option value="custom">{{ t('settings.apiProviderCustom') }}</option>
+            <select v-model="providerId" class="form-select">
+              <option v-for="provider in PRESET_API_PROVIDERS" :key="provider.id" :value="provider.id">
+                {{ provider.name }}
+              </option>
             </select>
             <span class="select-arrow">▼</span>
           </div>
         </div>
 
-        <div v-if="apiProvider === 'custom'" class="setting-section">
-          <label class="section-label">{{ t('settings.customEndpoint') }}</label>
+        <div class="setting-section">
+          <label class="section-label">{{ t('settings.apiKey') }}</label>
+          <ApiKeyInput v-model="apiKey" :placeholder="apiKeyPlaceholder" compact />
+        </div>
+
+        <div v-if="isCustomProvider" class="setting-section">
+          <label class="section-label">{{ t('settings.endpoint') }}</label>
           <input
-            v-model="customEndpoint"
+            v-model="llmConfig.endpoint"
+            @change="llmConfigStorage.set(llmConfig)"
             type="text"
-            :placeholder="t('settings.customEndpointPlaceholder')"
+            :placeholder="t('settings.endpointPlaceholder')"
             class="form-input"
           />
         </div>
 
-        <div v-if="apiProvider === 'custom'" class="setting-section">
-          <label class="section-label">{{ t('settings.customModel') }}</label>
+        <div class="setting-section">
+          <label class="section-label">{{ t('settings.model') }}</label>
           <input
-            v-model="customModel"
+            v-model="llmConfig.model"
+            @change="llmConfigStorage.set(llmConfig)"
             type="text"
-            :placeholder="t('settings.customModelPlaceholder')"
+            :placeholder="t('settings.modelPlaceholder')"
             class="form-input"
           />
         </div>

@@ -19,18 +19,25 @@ export interface ElementSelectorInfo {
 }
 
 /**
- * API 提供商类型
+ * API 提供商配置
  */
-export type ApiProvider = 'huggingface' | 'replicate' | 'custom';
+export interface ApiProviderConfig {
+  id: string;
+  name: string;
+  defaultEndpoint: string;
+  defaultModel: string;
+  docsUrl: string;
+  keyPlaceholder: string;
+}
 
 /**
  * 大模型调用配置接口
  */
 export interface LLMConfig {
   apiKey: string;
-  apiProvider: ApiProvider;
-  customEndpoint?: string;
-  customModel?: string;
+  providerId: string;
+  endpoint: string;
+  model: string;
 }
 
 /**
@@ -68,6 +75,45 @@ export interface AppSettings {
 }
 
 /**
+ * 优化策略类型
+ */
+export type OptimizationStrategy =
+  | 'general'
+  | 'coding'
+  | 'writing'
+  | 'translation'
+  | 'analysis'
+  | 'creative'
+  | 'custom';
+
+/**
+ * 提示词配置接口
+ */
+export interface PromptConfig {
+  id: string;
+  name: string;
+  description: string;
+  strategy: OptimizationStrategy;
+  systemPrompt: string;
+  userPromptTemplate: string;
+  temperature: number;
+  maxTokens: number;
+  isBuiltIn: boolean;
+  isEditable: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
+ * 用户提示词配置接口
+ */
+export interface UserPromptConfig {
+  selectedPromptId: string;
+  customPrompts: PromptConfig[];
+  builtInOverrides: Record<string, Partial<PromptConfig>>;
+}
+
+/**
  * 存储数据接口
  */
 export interface StorageData {
@@ -76,4 +122,5 @@ export interface StorageData {
   optimizeHistory: OptimizeHistory[];
   appSettings: AppSettings;
   userSelectors: Record<string, UserSelectorConfig>;
+  userPromptConfig: UserPromptConfig;
 }

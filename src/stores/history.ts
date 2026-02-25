@@ -15,20 +15,31 @@ export const useHistoryStore = defineStore('history', () => {
 
   // 存储监听取消函数
   let unwatchStorage: (() => void) | null = null;
+  let isInitializing = false;
 
   /**
    * 初始化 Store：从 storage 加载数据并监听变化
+   * 后台脚本已确保 storage 有默认值，这里直接读取即可
    */
   async function initialize() {
-    if (isLoaded.value) return;
+    if (isLoaded.value || isInitializing) return;
 
-    histories.value = await optimizeHistory.get();
-    isLoaded.value = true;
+    isInitializing = true;
 
-    // 监听外部变化（其他页面修改 storage）
-    unwatchStorage = optimizeHistory.watch((newValue) => {
-      histories.value = newValue;
-    });
+    try {
+      histories.value = await optimizeHistory.get();
+      isLoaded.value = true;
+
+      // 监听外部变化（其他页面修改 storage）
+      if (unwatchStorage) {
+        unwatchStorage();
+      }
+      unwatchStorage = optimizeHistory.watch((newValue) => {
+        histories.value = newValue;
+      });
+    } finally {
+      isInitializing = false;
+    }
   }
 
   /**

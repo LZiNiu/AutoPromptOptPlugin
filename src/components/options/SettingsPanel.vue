@@ -3,41 +3,47 @@
     <h2 class="panel-title">{{ t('settings.title') }}</h2>
     
     <div class="settings-section">
-      <h3 class="section-title">{{ t('settings.apiKey') }}</h3>
-      <ApiKeyInput v-model="apiKey" />
-      <p class="help-text">{{ t('settings.apiKeyHelp') }}</p>
-    </div>
-
-    <div class="settings-section">
       <h3 class="section-title">{{ t('settings.apiProvider') }}</h3>
       <div class="select-wrapper">
-        <select v-model="apiProvider" class="form-select">
-          <option value="huggingface">{{ t('settings.apiProviderHuggingface') }}</option>
-          <option value="replicate">{{ t('settings.apiProviderReplicate') }}</option>
-          <option value="custom">{{ t('settings.apiProviderCustom') }}</option>
+        <select v-model="providerId" class="form-select">
+          <option v-for="provider in PRESET_API_PROVIDERS" :key="provider.id" :value="provider.id">
+            {{ provider.name }}
+          </option>
         </select>
         <span class="select-arrow">▼</span>
       </div>
+      <p class="help-text">
+        <a v-if="currentProvider.docsUrl" :href="currentProvider.docsUrl" target="_blank" class="docs-link">
+          {{ t('settings.viewDocs') }} →
+        </a>
+      </p>
     </div>
 
-    <div v-if="apiProvider === 'custom'" class="settings-section">
-      <h3 class="section-title">{{ t('settings.customEndpoint') }}</h3>
+    <div class="settings-section">
+      <h3 class="section-title">{{ t('settings.apiKey') }}</h3>
+      <ApiKeyInput v-model="apiKey" :placeholder="apiKeyPlaceholder" />
+      <p class="help-text">{{ t('settings.apiKeyHelp') }}</p>
+    </div>
+
+    <div v-if="isCustomProvider" class="settings-section">
+      <h3 class="section-title">{{ t('settings.endpoint') }}</h3>
       <input
-        v-model="customEndpoint"
+        v-model="endpoint"
         type="text"
-        :placeholder="t('settings.customEndpointPlaceholder')"
+        :placeholder="t('settings.endpointPlaceholder')"
         class="form-input"
       />
     </div>
 
-    <div v-if="apiProvider === 'custom'" class="settings-section">
-      <h3 class="section-title">{{ t('settings.customModel') }}</h3>
+    <div class="settings-section">
+      <h3 class="section-title">{{ t('settings.model') }}</h3>
       <input
-        v-model="customModel"
+        v-model="model"
         type="text"
-        :placeholder="t('settings.customModelPlaceholder')"
+        :placeholder="t('settings.modelPlaceholder')"
         class="form-input"
       />
+      <p class="help-text">{{ t('settings.modelHelp') }}</p>
     </div>
 
     <div class="settings-section">
@@ -85,12 +91,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useSettingsStore } from '@/stores';
 import { llmConfig as llmConfigStorage } from '@/utils/storage';
 import type { LLMConfig } from '@/types/storage';
-import { DEFAULT_LLM_CONFIG } from '@/constants/defaults';
+import { DEFAULT_LLM_CONFIG, PRESET_API_PROVIDERS, getProviderConfig } from '@/constants/defaults';
 import ApiKeyInput from '@/components/common/ApiKeyInput.vue';
 import ToggleSwitch from './ToggleSwitch.vue';
 
@@ -110,29 +116,43 @@ const apiKey = computed({
   }
 });
 
-const apiProvider = computed({
-  get: () => llmConfig.value.apiProvider,
+const providerId = computed({
+  get: () => llmConfig.value.providerId,
   set: (val) => {
-    llmConfig.value.apiProvider = val;
+    llmConfig.value.providerId = val;
+    const config = getProviderConfig(val);
+    if (val !== 'custom') {
+      llmConfig.value.endpoint = config.defaultEndpoint;
+      llmConfig.value.model = config.defaultModel;
+    } else {
+      llmConfig.value.endpoint = '';
+      llmConfig.value.model = '';
+    }
     llmConfigStorage.set(llmConfig.value);
   }
 });
 
-const customEndpoint = computed({
-  get: () => llmConfig.value.customEndpoint || '',
+const endpoint = computed({
+  get: () => llmConfig.value.endpoint,
   set: (val) => {
-    llmConfig.value.customEndpoint = val;
+    llmConfig.value.endpoint = val;
     llmConfigStorage.set(llmConfig.value);
   }
 });
 
-const customModel = computed({
-  get: () => llmConfig.value.customModel || '',
+const model = computed({
+  get: () => llmConfig.value.model,
   set: (val) => {
-    llmConfig.value.customModel = val;
+    llmConfig.value.model = val;
     llmConfigStorage.set(llmConfig.value);
   }
 });
+
+const isCustomProvider = computed(() => providerId.value === 'custom');
+
+const currentProvider = computed(() => getProviderConfig(providerId.value));
+
+const apiKeyPlaceholder = computed(() => currentProvider.value.keyPlaceholder);
 
 async function handleSkipPreviewChange(val: boolean) {
   await settingsStore.setSkipPreview(val);
