@@ -10,6 +10,7 @@ export const useNavigationStore = defineStore('navigation', () => {
 
   const tabs = [
     { id: 'settings', label: 'nav.settings', icon: '⚙️' },
+    { id: 'prompts', label: 'nav.prompts', icon: '🎯' },
     { id: 'templates', label: 'nav.templates', icon: '📝' },
     { id: 'history', label: 'nav.history', icon: '📜' },
   ];

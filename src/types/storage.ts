@@ -84,6 +84,7 @@ export type OptimizationStrategy =
   | 'translation'
   | 'analysis'
   | 'creative'
+  | 'iterative'
   | 'custom';
 
 /**

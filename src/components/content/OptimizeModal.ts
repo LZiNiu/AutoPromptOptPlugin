@@ -146,16 +146,18 @@ const MODAL_STYLES = `
     gap: 12px;
   }
   .apo-btn {
-    padding: 10px 20px;
-    border-radius: 8px;
-    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
     border: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+    outline: none;
+    white-space: nowrap;
   }
   .apo-btn-secondary {
     background: #f3f4f6;
@@ -163,13 +165,6 @@ const MODAL_STYLES = `
   }
   .apo-btn-secondary:hover {
     background: #e5e7eb;
-  }
-  .apo-btn-primary {
-    background: #3b82f6;
-    color: #fff;
-  }
-  .apo-btn-primary:hover {
-    background: #2563eb;
   }
   .apo-btn-success {
     background: #10b981;
@@ -314,17 +309,20 @@ export function createOptimizeModal(
   };
 
   // 事件绑定
-  closeBtn.addEventListener('click', () => {
+  closeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
     close();
     onCancel?.();
   });
 
-  cancelBtn.addEventListener('click', () => {
+  cancelBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
     close();
     onCancel?.();
   });
 
-  copyBtn.addEventListener('click', async () => {
+  copyBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
     try {
       await navigator.clipboard.writeText(optimizedText);
       copyBtn.textContent = '✓ 已复制';
@@ -339,7 +337,8 @@ export function createOptimizeModal(
     }
   });
 
-  applyBtn.addEventListener('click', () => {
+  applyBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
     if (targetElement) {
       const result = replaceInputText(targetElement, optimizedText);
       if (result.success) {

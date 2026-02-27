@@ -92,7 +92,7 @@ const BUTTON_STYLES = `
     to { transform: rotate(360deg); }
   }
   .apo-strategy-select {
-    padding: 5px 10px;
+    padding: 5px 28px 5px 10px;
     border: 1px solid #d1d5db;
     border-radius: 6px;
     font-size: 12px;
@@ -100,6 +100,12 @@ const BUTTON_STYLES = `
     cursor: pointer;
     outline: none;
     color: #374151;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
   }
   .apo-strategy-select:focus {
     border-color: #667eea;
@@ -214,7 +220,7 @@ export function injectOptimizeButton(
   let insertTarget: HTMLElement | null = null;
 
   if (config.buttonContainerSelector) {
-    insertTarget = inputElement.closest(config.buttonContainerSelector) as HTMLElement;
+    insertTarget = document.querySelector(config.buttonContainerSelector) as HTMLElement;
   }
 
   if (!insertTarget) {
@@ -231,7 +237,11 @@ export function injectOptimizeButton(
   }
 
   // 优化按钮点击事件
-  const handleOptimize = async () => {
+  const handleOptimize = async (e: Event) => {
+    // 阻止事件冒泡，防止触发网页的发送按钮
+    e.stopPropagation();
+    e.preventDefault();
+
     const inputText = getInputValue(inputElement);
 
     if (!inputText.trim()) {
@@ -277,8 +287,19 @@ export function injectOptimizeButton(
             {
               originalText: inputText,
               optimizedText: result.optimizedPrompt,
-              onApply: () => {
-                // 应用后关闭
+              onApply: async () => {
+                // 应用后切换到迭代优化策略
+                const { userPromptConfig: storage } = await import('./storage');
+                const { setSelectedPrompt } = await import('./prompts');
+                const currentConfig = await storage.get();
+                const newConfig = setSelectedPrompt(currentConfig, 'iterative-v1');
+                await storage.set(newConfig);
+
+                // 更新本地上下文和UI
+                currentContext.userPromptConfig = newConfig;
+                const newSelect = createStrategySelector(newConfig);
+                container.replaceChild(newSelect, strategySelect);
+                strategySelect = newSelect;
               },
               onCancel: () => {
                 // 取消
@@ -303,7 +324,11 @@ export function injectOptimizeButton(
   optimizeBtn.addEventListener('click', handleOptimize);
 
   // 模板按钮点击事件
-  const handleTemplate = () => {
+  const handleTemplate = (e: Event) => {
+    // 阻止事件冒泡，防止触发网页的发送按钮
+    e.stopPropagation();
+    e.preventDefault();
+
     if (currentContext.templates.length === 0) {
       showErrorToast('暂无保存的模板，请在选项页添加');
       return;
@@ -395,6 +420,8 @@ function setLoadingState(btn: HTMLButtonElement, loading: boolean): void {
   } else {
     btn.disabled = false;
     btn.innerHTML = '✨ 优化';
+    // 确保 className 保持一致
+    btn.className = 'apo-btn apo-btn-primary';
   }
 }
 

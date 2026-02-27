@@ -401,9 +401,13 @@ export function createTemplateModal(
         }
       };
 
-      item.addEventListener('click', handleSelect);
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleSelect();
+      });
       actionBtn.addEventListener('click', (e) => {
         e.stopPropagation();
+        e.preventDefault();
         handleSelect();
       });
 

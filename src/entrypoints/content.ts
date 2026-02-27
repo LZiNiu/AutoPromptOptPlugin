@@ -6,10 +6,10 @@ import type { LLMConfig, UserPromptConfig, PromptTemplate, AppSettings } from '@
 const SITE_CONFIGS: Record<string, { inputSelector: string; buttonContainerSelector?: string }> = {
   'qwen.ai': {
     inputSelector: 'textarea[class~="message-input-textarea"], textarea[placeholder*="有什么我能帮您的吗？"]',
-    buttonContainerSelector: 'div[class~="message-input-container-area"]',
+    buttonContainerSelector: 'div.message-input-right-button',
   },
   'z.ai': {
-    inputSelector: 'textarea[placeholder*="什么"], textarea[placeholder*="输入"]',
+    inputSelector: '#chat-input, textarea[placeholder*="什么"]',
     buttonContainerSelector: '',
   },
   'qianwen.aliyun.com': {
@@ -33,8 +33,8 @@ const SITE_CONFIGS: Record<string, { inputSelector: string; buttonContainerSelec
     buttonContainerSelector: '[class*="send-button"], [class*="submit"]',
   },
   'chatglm.cn': {
-    inputSelector: 'textarea[placeholder*="输入"], .chat-input textarea, [class*="input-box"] textarea',
-    buttonContainerSelector: '.chat-input-actions, [class*="send-btn"]',
+    inputSelector: '.input-box-inner > textarea',
+    buttonContainerSelector: '',
   },
 };
 
@@ -151,7 +151,6 @@ function injectButtons(): void {
   cleanup();
 
   const hostname = window.location.hostname;
-  console.log('[AutoPromptOpt] 当前主机名:', hostname);
 
   const config = findSiteConfig(hostname);
 
@@ -238,10 +237,10 @@ function watchStorageChanges(ctx: ContentScriptContext): void {
   try {
     // 使用 storage.watch 监听所有相关键的变化
     const unwatchPromptTemplates = storage.watch<PromptTemplate[]>('local:promptTemplates', (newTemplates, oldTemplates) => {
-      console.log('[AutoPromptOpt] 模板数据变化:', {
-        new: newTemplates ? `${newTemplates.length} 个模板` : 'null',
-        old: oldTemplates ? `${oldTemplates.length} 个模板` : 'null',
-      });
+      // console.log('[AutoPromptOpt] 模板数据变化:', {
+      //   new: newTemplates ? `${newTemplates.length} 个模板` : 'null',
+      //   old: oldTemplates ? `${oldTemplates.length} 个模板` : 'null',
+      // });
 
       if (ctx.isInvalid) {
         console.log('[AutoPromptOpt] 上下文已失效，忽略存储变化');
@@ -306,8 +305,9 @@ function watchStorageChanges(ctx: ContentScriptContext): void {
  */
 function observePageChanges(ctx: ContentScriptContext): void {
   let lastUrl = location.href;
+  let lastContainer: Element | null = null;
 
-  const observer = new MutationObserver(() => {
+  const observer = new MutationObserver((mutations) => {
     if (ctx.isInvalid) {
       console.log('[AutoPromptOpt] 上下文已失效，停止观察');
       observer.disconnect();
@@ -318,9 +318,13 @@ function observePageChanges(ctx: ContentScriptContext): void {
     if (currentUrl !== lastUrl) {
       console.log('[AutoPromptOpt] URL 变化:', lastUrl, '->', currentUrl);
       lastUrl = currentUrl;
-      // URL 变化，重新注入
+      lastContainer = null;
       setTimeout(() => injectButtons(), 500);
     } else {
+      // 检查容器是否发生变化（被重新创建或移动）
+      checkContainerChanges(ctx, (newContainer) => {
+        lastContainer = newContainer;
+      });
       // 检查是否有新的输入框出现
       checkForNewInputs();
     }
@@ -332,6 +336,31 @@ function observePageChanges(ctx: ContentScriptContext): void {
   });
 
   console.log('[AutoPromptOpt] 页面变化观察已启动');
+}
+
+/**
+ * 检查按钮容器是否发生变化
+ * 当容器被重新创建或移动时，重新注入按钮
+ */
+function checkContainerChanges(ctx: ContentScriptContext, onContainerFound: (container: Element) => void): void {
+  const hostname = window.location.hostname;
+  const config = findSiteConfig(hostname);
+
+  if (!config?.buttonContainerSelector) return;
+
+  // 查找当前容器
+  const currentContainer = document.querySelector(config.buttonContainerSelector);
+
+  // 如果找到了容器但按钮不在其中，说明容器被重新创建了
+  if (currentContainer) {
+    const buttonContainer = currentContainer.querySelector('.apo-container');
+    if (!buttonContainer && injectInstances.length > 0) {
+      console.log('[AutoPromptOpt] 容器被重新创建，重新注入按钮');
+      cleanup();
+      setTimeout(() => injectButtons(), 100);
+    }
+    onContainerFound(currentContainer);
+  }
 }
 
 /**

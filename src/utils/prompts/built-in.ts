@@ -148,6 +148,31 @@ export const BUILT_IN_PROMPTS: PromptConfig[] = [
     createdAt: 0,
     updatedAt: 0,
   },
+  {
+    id: 'iterative-v1',
+    name: '迭代优化',
+    description: '基于已优化提示词进行进一步迭代改进',
+    strategy: 'iterative',
+    systemPrompt: `你是一位专业的提示词迭代优化专家。用户已经获得了一个初步优化的提示词，你的任务是在此基础上进行深度迭代优化，使其更加完善。
+
+迭代优化原则：
+1. 保留原有提示词的核心结构和优点
+2. 识别并强化关键要求和约束条件
+3. 补充遗漏的重要细节或上下文
+4. 优化表达清晰度，消除歧义
+5. 添加具体的输出格式或示例（如适用）
+6. 考虑边界情况和异常处理
+7. 提升提示词的可执行性和效果
+
+请基于用户提供的已优化提示词，输出进一步改进后的版本，不要添加解释。`,
+    userPromptTemplate: '请对以下已优化的提示词进行迭代改进：\n\n{{input}}',
+    temperature: 0.6,
+    maxTokens: 2048,
+    isBuiltIn: true,
+    isEditable: true,
+    createdAt: 0,
+    updatedAt: 0,
+  },
 ];
 
 /**

@@ -1,27 +1,11 @@
 import type { LLMConfig, UserPromptConfig } from '@/types/storage';
-import { getSelectedPrompt, buildOptimizationParams } from './prompts';
+import { getSelectedPrompt, buildOptimizationParams } from '../prompts';
+import type { OptimizeResult, OptimizeOptions } from './types';
+import { callOpenAICompatibleAPI, testOpenAIConnection } from './openai-compatible';
+import { callAnthropicAPI, testAnthropicConnection } from './anthropic';
+import { callGeminiAPI, testGeminiConnection } from './gemini';
 
-/**
- * 优化结果接口
- */
-export interface OptimizeResult {
-  success: boolean;
-  optimizedPrompt?: string;
-  error?: string;
-  usage?: {
-    promptTokens?: number;
-    completionTokens?: number;
-    totalTokens?: number;
-  };
-}
-
-/**
- * 优化选项
- */
-export interface OptimizeOptions {
-  timeout?: number;
-  retryCount?: number;
-}
+export type { OptimizeResult, OptimizeOptions } from './types';
 
 const DEFAULT_TIMEOUT = 60000;
 const DEFAULT_RETRY_COUNT = 2;
@@ -54,7 +38,7 @@ export async function optimizePrompt(
 
   for (let attempt = 0; attempt <= retryCount; attempt++) {
     try {
-      const result = await callLLMAPI(
+      const result = await callProviderAPI(
         config,
         systemPrompt,
         userPrompt,
@@ -92,17 +76,9 @@ export async function optimizePrompt(
 }
 
 /**
- * 调用 LLM API
- * @param config LLM 配置
- * @param systemPrompt 系统提示词
- * @param userPrompt 用户提示词
- * @param temperature 温度参数
- * @param maxTokens 最大 token 数
- * @param timeout 超时时间
- * @param abortSignal 取消信号
- * @returns 优化结果
+ * 根据提供商调用对应的 API
  */
-async function callLLMAPI(
+async function callProviderAPI(
   config: LLMConfig,
   systemPrompt: string,
   userPrompt: string,
@@ -119,119 +95,39 @@ async function callLLMAPI(
     abortSignal.addEventListener('abort', () => controller.abort());
   }
 
+  const params = {
+    endpoint: config.endpoint,
+    apiKey: config.apiKey,
+    model: config.model,
+    systemPrompt,
+    userPrompt,
+    temperature,
+    maxTokens,
+    signal: controller.signal,
+  };
+
   try {
-    const response = await fetch(config.endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: config.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature,
-        max_tokens: maxTokens,
-      }),
-      signal: controller.signal,
-    });
-
+    // 根据提供商选择对应的调用方式
+    switch (config.providerId) {
+      case 'anthropic':
+        return await callAnthropicAPI(params);
+      case 'gemini':
+        return await callGeminiAPI(params);
+      case 'openai':
+      case 'aliyun-bailian':
+      case 'modelscope':
+      case 'siliconflow':
+      case 'deepseek':
+      case 'zhipu':
+      case 'volcengine':
+      case 'custom':
+      default:
+        // 使用 OpenAI 兼容格式
+        return await callOpenAICompatibleAPI(params);
+    }
+  } finally {
     clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.error?.message || errorData.message || `HTTP ${response.status}`;
-      throw new Error(`API 请求失败: ${errorMessage}`);
-    }
-
-    const data = await response.json();
-
-    // 解析响应
-    const optimizedPrompt = extractContentFromResponse(data);
-    const usage = extractUsageFromResponse(data);
-
-    if (!optimizedPrompt) {
-      throw new Error('API 返回内容为空');
-    }
-
-    return {
-      success: true,
-      optimizedPrompt: optimizedPrompt.trim(),
-      usage,
-    };
-  } catch (error) {
-    clearTimeout(timeoutId);
-    throw error;
   }
-}
-
-/**
- * 从 API 响应中提取内容
- * @param response API 响应
- * @returns 内容字符串
- */
-function extractContentFromResponse(response: unknown): string | undefined {
-  if (!response || typeof response !== 'object') {
-    return undefined;
-  }
-
-  const resp = response as Record<string, unknown>;
-
-  // OpenAI 格式
-  if (Array.isArray(resp.choices) && resp.choices.length > 0) {
-    const choice = resp.choices[0] as Record<string, unknown>;
-    if (choice.message && typeof choice.message === 'object') {
-      const message = choice.message as Record<string, unknown>;
-      if (typeof message.content === 'string') {
-        return message.content;
-      }
-    }
-    // 兼容旧格式
-    if (typeof choice.text === 'string') {
-      return choice.text;
-    }
-  }
-
-  // 其他可能的格式
-  if (typeof resp.content === 'string') {
-    return resp.content;
-  }
-
-  if (typeof resp.text === 'string') {
-    return resp.text;
-  }
-
-  if (typeof resp.output === 'string') {
-    return resp.output;
-  }
-
-  return undefined;
-}
-
-/**
- * 从 API 响应中提取使用量信息
- * @param response API 响应
- * @returns 使用量信息
- */
-function extractUsageFromResponse(response: unknown): OptimizeResult['usage'] {
-  if (!response || typeof response !== 'object') {
-    return undefined;
-  }
-
-  const resp = response as Record<string, unknown>;
-
-  if (resp.usage && typeof resp.usage === 'object') {
-    const usage = resp.usage as Record<string, unknown>;
-    return {
-      promptTokens: typeof usage.prompt_tokens === 'number' ? usage.prompt_tokens : undefined,
-      completionTokens: typeof usage.completion_tokens === 'number' ? usage.completion_tokens : undefined,
-      totalTokens: typeof usage.total_tokens === 'number' ? usage.total_tokens : undefined,
-    };
-  }
-
-  return undefined;
 }
 
 /**
@@ -286,21 +182,37 @@ export async function testApiConnection(config: LLMConfig): Promise<{ success: b
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    const response = await fetch(config.endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: config.model,
-        messages: [
-          { role: 'user', content: 'Hello' },
-        ],
-        max_tokens: 5,
-      }),
-      signal: controller.signal,
-    });
+    let response: Response;
+
+    // 根据提供商选择测试方式
+    switch (config.providerId) {
+      case 'anthropic':
+        response = await testAnthropicConnection(
+          config.endpoint,
+          config.apiKey,
+          config.model,
+          controller.signal
+        );
+        break;
+
+      case 'gemini':
+        response = await testGeminiConnection(
+          config.endpoint,
+          config.apiKey,
+          config.model,
+          controller.signal
+        );
+        break;
+
+      default:
+        // OpenAI 兼容格式
+        response = await testOpenAIConnection(
+          config.endpoint,
+          config.apiKey,
+          config.model,
+          controller.signal
+        );
+    }
 
     clearTimeout(timeoutId);
 

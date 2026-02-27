@@ -5,6 +5,7 @@
   },
   "nav": {
     "settings": "Settings",
+    "prompts": "Prompts",
     "templates": "Templates",
     "history": "History"
   },
@@ -111,6 +112,47 @@
     "yes": "Yes",
     "no": "No",
     "ok": "OK"
+  },
+  "promptManager": {
+    "title": "Prompt Management",
+    "newPrompt": "New Prompt",
+    "searchPlaceholder": "Search prompts...",
+    "allStrategies": "All Strategies",
+    "builtInPrompts": "Built-in Prompts",
+    "customPrompts": "Custom Prompts",
+    "modified": "Modified",
+    "noBuiltInPrompts": "No built-in prompts",
+    "noCustomPrompts": "No custom prompts",
+    "noCustomPromptsDesc": "Click 'New Prompt' to create your first prompt",
+    "resetConfirm": "Are you sure you want to reset this prompt to default settings?",
+    "deleteConfirm": "Are you sure you want to delete this prompt?"
+  },
+  "promptEditor": {
+    "newTitle": "New Prompt",
+    "editTitle": "Edit Prompt",
+    "name": "Name",
+    "namePlaceholder": "Enter prompt name",
+    "description": "Description",
+    "descriptionPlaceholder": "Enter prompt description",
+    "strategy": "Optimization Strategy",
+    "systemPrompt": "System Prompt",
+    "systemPromptPlaceholder": "Enter system prompt...",
+    "userPromptTemplate": "User Prompt Template",
+    "userPromptTemplatePlaceholder": "Enter user prompt template, use {{input}} as placeholder",
+    "placeholderTip": "Use {{input}} as placeholder for user input",
+    "advancedParams": "Advanced Parameters",
+    "temperature": "Temperature",
+    "maxTokens": "Max Tokens",
+    "resetToDefault": "Reset to Default"
+  },
+  "strategies": {
+    "general": "General Optimization",
+    "coding": "Code Optimization",
+    "writing": "Writing Optimization",
+    "translation": "Translation Optimization",
+    "analysis": "Analysis Optimization",
+    "creative": "Creative Optimization",
+    "custom": "Custom"
   },
   "privacy": {
     "title": "Privacy Policy",

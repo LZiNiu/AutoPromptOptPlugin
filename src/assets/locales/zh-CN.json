@@ -5,6 +5,7 @@
   },
   "nav": {
     "settings": "设置",
+    "prompts": "提示词",
     "templates": "模板",
     "history": "历史"
   },
@@ -111,6 +112,47 @@
     "yes": "是",
     "no": "否",
     "ok": "确定"
+  },
+  "promptManager": {
+    "title": "提示词管理",
+    "newPrompt": "新建提示词",
+    "searchPlaceholder": "搜索提示词...",
+    "allStrategies": "全部策略",
+    "builtInPrompts": "内置提示词",
+    "customPrompts": "自定义提示词",
+    "modified": "已修改",
+    "noBuiltInPrompts": "暂无内置提示词",
+    "noCustomPrompts": "暂无自定义提示词",
+    "noCustomPromptsDesc": "点击「新建提示词」创建您的第一个提示词",
+    "resetConfirm": "确定要重置此提示词为默认设置吗？",
+    "deleteConfirm": "确定要删除此提示词吗？"
+  },
+  "promptEditor": {
+    "newTitle": "新建提示词",
+    "editTitle": "编辑提示词",
+    "name": "名称",
+    "namePlaceholder": "请输入提示词名称",
+    "description": "描述",
+    "descriptionPlaceholder": "请输入提示词描述",
+    "strategy": "优化策略",
+    "systemPrompt": "系统提示词",
+    "systemPromptPlaceholder": "请输入系统提示词...",
+    "userPromptTemplate": "用户提示词模板",
+    "userPromptTemplatePlaceholder": "请输入用户提示词模板，使用 {{input}} 作为占位符",
+    "placeholderTip": "使用 {{input}} 作为用户输入的占位符",
+    "advancedParams": "高级参数",
+    "temperature": "Temperature",
+    "maxTokens": "Max Tokens",
+    "resetToDefault": "重置为默认"
+  },
+  "strategies": {
+    "general": "通用优化",
+    "coding": "代码优化",
+    "writing": "写作优化",
+    "translation": "翻译优化",
+    "analysis": "分析优化",
+    "creative": "创意优化",
+    "custom": "自定义"
   },
   "privacy": {
     "title": "隐私声明",
