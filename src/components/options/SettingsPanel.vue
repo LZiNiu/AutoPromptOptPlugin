@@ -91,7 +91,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useSettingsStore } from '@/stores';
 import { llmConfig as llmConfigStorage } from '@/utils/storage';
@@ -108,11 +108,19 @@ let unwatchLLMConfig: (() => void) | null = null;
 
 const showSavedMessage = ref(false);
 
+// API Key 防抖更新
+let apiKeyDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 const apiKey = computed({
   get: () => llmConfig.value.apiKey,
   set: (val) => {
     llmConfig.value.apiKey = val;
-    llmConfigStorage.set(llmConfig.value);
+    // 防抖：500ms 后保存
+    if (apiKeyDebounceTimer) {
+      clearTimeout(apiKeyDebounceTimer);
+    }
+    apiKeyDebounceTimer = setTimeout(() => {
+      llmConfigStorage.set(llmConfig.value);
+    }, 500);
   }
 });
 

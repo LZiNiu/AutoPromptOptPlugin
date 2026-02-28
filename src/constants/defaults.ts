@@ -80,7 +80,7 @@ export const PRESET_API_PROVIDERS = [
   {
     id: 'openai',
     name: 'OpenAI',
-    defaultEndpoint: 'https://api.openai.com/v1/',
+    defaultEndpoint: 'https://api.openai.com/v1',
     defaultModel: 'gpt-4o-mini',
     docsUrl: 'https://platform.openai.com/docs',
     keyPlaceholder: 'sk-...',
@@ -88,7 +88,7 @@ export const PRESET_API_PROVIDERS = [
   {
     id: 'anthropic',
     name: 'Anthropic',
-    defaultEndpoint: 'https://api.anthropic.com/v1/',
+    defaultEndpoint: 'https://api.anthropic.com/v1',
     defaultModel: 'claude-3-haiku-20240307',
     docsUrl: 'https://docs.anthropic.com',
     keyPlaceholder: 'sk-ant-...',
@@ -96,7 +96,7 @@ export const PRESET_API_PROVIDERS = [
   {
     id: 'aliyun-bailian',
     name: '阿里云百炼',
-    defaultEndpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1/',
+    defaultEndpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     defaultModel: 'qwen-max',
     docsUrl: 'https://help.aliyun.com/document_detail/611472.html',
     keyPlaceholder: 'sk-...',
@@ -104,7 +104,7 @@ export const PRESET_API_PROVIDERS = [
   {
     id: 'modelscope',
     name: 'ModelScope',
-    defaultEndpoint: 'https://api-inference.modelscope.cn/v1/',
+    defaultEndpoint: 'https://api-inference.modelscope.cn/v1',
     defaultModel: 'Qwen/Qwen3-Next-80B-A3B-Instruct',
     docsUrl: 'https://modelscope.cn/docs',
     keyPlaceholder: 'ms-...',
@@ -112,7 +112,7 @@ export const PRESET_API_PROVIDERS = [
   {
     id: 'siliconflow',
     name: 'SiliconFlow',
-    defaultEndpoint: 'https://api.siliconflow.cn/v1/',
+    defaultEndpoint: 'https://api.siliconflow.cn/v1',
     defaultModel: 'Qwen/Qwen2.5-7B-Instruct',
     docsUrl: 'https://docs.siliconflow.cn',
     keyPlaceholder: 'sk-...',
@@ -120,7 +120,7 @@ export const PRESET_API_PROVIDERS = [
   {
     id: 'volcengine',
     name: '火山引擎',
-    defaultEndpoint: 'https://ark.cn-beijing.volces.com/api/v3/',
+    defaultEndpoint: 'https://ark.cn-beijing.volces.com/api/v3',
     defaultModel: 'doubao-pro-32k',
     docsUrl: 'https://www.volcengine.com/docs/82379',
     keyPlaceholder: '...',
@@ -128,7 +128,7 @@ export const PRESET_API_PROVIDERS = [
   {
     id: 'gemini',
     name: 'Google Gemini',
-    defaultEndpoint: 'https://generativelanguage.googleapis.com/v1beta/',
+    defaultEndpoint: 'https://generativelanguage.googleapis.com/v1beta',
     defaultModel: 'gemini-1.5-flash',
     docsUrl: 'https://ai.google.dev/docs',
     keyPlaceholder: '...',
@@ -136,7 +136,7 @@ export const PRESET_API_PROVIDERS = [
   {
     id: 'deepseek',
     name: 'Deepseek',
-    defaultEndpoint: 'https://api.deepseek.com/v1/',
+    defaultEndpoint: 'https://api.deepseek.com/v1',
     defaultModel: 'deepseek-chat',
     docsUrl: 'https://platform.deepseek.com/docs',
     keyPlaceholder: 'sk-...',
@@ -144,7 +144,7 @@ export const PRESET_API_PROVIDERS = [
   {
     id: 'zhipu',
     name: '智谱AI',
-    defaultEndpoint: 'https://open.bigmodel.cn/api/paas/v4/',
+    defaultEndpoint: 'https://open.bigmodel.cn/api/paas/v4',
     defaultModel: 'glm-4-flash',
     docsUrl: 'https://open.bigmodel.cn/dev/howuse/glm-4',
     keyPlaceholder: '...',

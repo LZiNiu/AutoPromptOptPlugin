@@ -8,7 +8,9 @@ import { optimizePrompt } from './api';
 import { getInputValue, isTextInputElement } from './text-replacer';
 import { createOptimizeModal } from '@/components/content/OptimizeModal';
 import { createTemplateModal } from '@/components/content/TemplateModal';
+import { createHistoryModal } from '@/components/content/HistoryModal';
 import { getAllPrompts, getSelectedPrompt } from './prompts';
+import { getSessionHistory } from './storage';
 
 /**
  * 注入按钮配置
@@ -213,8 +215,15 @@ export function injectOptimizeButton(
   templateBtn.innerHTML = '📋 模板';
   templateBtn.title = '插入提示词模板';
 
+  // 创建历史按钮
+  const historyBtn = document.createElement('button');
+  historyBtn.className = 'apo-btn apo-btn-secondary';
+  historyBtn.innerHTML = '📜 历史';
+  historyBtn.title = '查看优化历史';
+
   container.appendChild(optimizeBtn);
   container.appendChild(templateBtn);
+  container.appendChild(historyBtn);
 
   // 查找插入位置
   let insertTarget: HTMLElement | null = null;
@@ -254,7 +263,7 @@ export function injectOptimizeButton(
       showErrorToast('请先配置 API Key');
       return;
     }
-
+    
     // 取消之前的请求
     if (currentAbortController) {
       currentAbortController.abort();
@@ -274,6 +283,23 @@ export function injectOptimizeButton(
       );
 
       if (result.success && result.optimizedPrompt) {
+        // 优化完成即记录历史（无论是否应用）
+        try {
+          const { addSessionHistory, appSettings } = await import('./storage');
+          const settings = await appSettings.get();
+          const maxHistoryCount = settings.maxHistoryCount || 50;
+          const currentPrompt = getSelectedPrompt(currentContext.userPromptConfig);
+
+          await addSessionHistory({
+            originalPrompt: inputText,
+            optimizedPrompt: result.optimizedPrompt,
+            providerId: currentContext.llmConfig.providerId,
+            promptId: currentPrompt.id,
+          }, maxHistoryCount);
+        } catch (error) {
+          console.error('[AutoPromptOpt] 保存历史记录失败:', error);
+        }
+
         if (currentContext.skipPreview) {
           // 直接替换
           const { replaceInputText } = await import('./text-replacer');
@@ -283,6 +309,7 @@ export function injectOptimizeButton(
           }
         } else {
           // 显示预览模态框
+          const currentPrompt = getSelectedPrompt(currentContext.userPromptConfig);
           createOptimizeModal(
             {
               originalText: inputText,
@@ -349,6 +376,37 @@ export function injectOptimizeButton(
   };
 
   templateBtn.addEventListener('click', handleTemplate);
+
+  // 历史按钮点击事件
+  const handleHistory = async (e: Event) => {
+    // 阻止事件冒泡，防止触发网页的发送按钮
+    e.stopPropagation();
+    e.preventDefault();
+
+    // 获取历史记录
+    const history = await getSessionHistory();
+
+    // 如果没有历史记录，显示提示
+    if (history.length === 0) {
+      showErrorToast('暂无历史记录');
+      return;
+    }
+
+    createHistoryModal(
+      {
+        history,
+        onSelect: () => {
+          // 历史记录已应用
+        },
+        onCancel: () => {
+          // 取消
+        },
+      },
+      inputElement
+    );
+  };
+
+  historyBtn.addEventListener('click', handleHistory);
 
   // 更新上下文函数
   const updateContext = (newContext: InjectContext) => {

@@ -2,20 +2,19 @@
   <div class="history-item">
     <div class="item-header">
       <div class="item-meta">
-        <span class="item-site">{{ getSiteName(history.siteId) }}</span>
         <span class="item-date">{{ formatTimestamp(history.timestamp) }}</span>
       </div>
       <div class="item-actions">
-        <button @click="$emit('copyOriginal', history)" class="action-btn" title="Copy Original">
+        <button @click="$emit('copyOriginal', history)" class="action-btn" :title="t('history.copyOriginal')">
           📋
         </button>
-        <button @click="$emit('copyOptimized', history)" class="action-btn" title="Copy Optimized">
+        <button @click="$emit('copyOptimized', history)" class="action-btn" :title="t('history.copyOptimized')">
           ✨
         </button>
-        <button @click="showDetails = !showDetails" class="action-btn" title="Toggle Details">
+        <button @click="showDetails = !showDetails" class="action-btn" :title="t('history.viewDetails')">
           {{ showDetails ? '▼' : '▶' }}
         </button>
-        <button @click="$emit('delete', history)" class="action-btn delete-btn" title="Delete">
+        <button @click="$emit('delete', history)" class="action-btn delete-btn" :title="t('history.delete')"> 
           🗑️
         </button>
       </div>
@@ -38,21 +37,21 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { OptimizeHistory } from '@/types/storage';
+import type { OptimizeHistoryItem } from '@/types/storage';
 
 const { t } = useI18n();
 
 defineProps<{
-  history: OptimizeHistory;
+  history: OptimizeHistoryItem;
 }>();
 
 defineEmits<{
-  copyOriginal: [history: OptimizeHistory];
-  copyOptimized: [history: OptimizeHistory];
-  delete: [history: OptimizeHistory];
+  copyOriginal: [history: OptimizeHistoryItem];
+  copyOptimized: [history: OptimizeHistoryItem];
+  delete: [history: OptimizeHistoryItem];
 }>();
 
-const showDetails = ref(false);
+const showDetails = ref(true);
 
 function formatTimestamp(timestamp: number): string {
   const date = new Date(timestamp);
@@ -75,19 +74,7 @@ function formatTimestamp(timestamp: number): string {
   }
 }
 
-function getSiteName(siteId: string): string {
-  const siteNames: Record<string, string> = {
-    'qwen-intl': 'Qwen Intl',
-    'z-ai': 'Z.AI',
-    'qwen-cn': 'Qwen CN',
-    'qwen-aliyun': 'Qwen Aliyun',
-    'tongyi-aliyun': 'Tongyi',
-    'chatgpt': 'ChatGPT',
-    'claude': 'Claude',
-    'chatglm': 'GLM-4',
-  };
-  return siteNames[siteId] || siteId;
-}
+
 </script>
 
 <style scoped>

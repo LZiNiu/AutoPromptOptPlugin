@@ -53,14 +53,15 @@ export interface PromptTemplate {
 }
 
 /**
- * 优化历史记录接口
+ * 优化历史记录接口（Session 存储）
  */
-export interface OptimizeHistory {
+export interface OptimizeHistoryItem {
   id: string;
   originalPrompt: string;
   optimizedPrompt: string;
+  providerId: string;
+  promptId: string;
   timestamp: number;
-  siteId: string;
 }
 
 /**
@@ -120,7 +121,6 @@ export interface UserPromptConfig {
 export interface StorageData {
   userConfig: LLMConfig;
   promptTemplates: PromptTemplate[];
-  optimizeHistory: OptimizeHistory[];
   appSettings: AppSettings;
   userSelectors: Record<string, UserSelectorConfig>;
   userPromptConfig: UserPromptConfig;

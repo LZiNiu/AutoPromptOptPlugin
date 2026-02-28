@@ -52,7 +52,7 @@
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useHistoryStore } from '@/stores/history';
-import type { OptimizeHistory } from '@/types/storage';
+import type { OptimizeHistoryItem } from '@/types/storage';
 import HistoryItem from './HistoryItem.vue';
 import StatisticsModal from './StatisticsModal.vue';
 
@@ -66,15 +66,15 @@ const searchQuery = computed({
 const filteredHistories = computed(() => historyStore.filteredHistories);
 const showStatistics = ref(false);
 
-function handleCopyOriginal(history: OptimizeHistory) {
+function handleCopyOriginal(history: OptimizeHistoryItem) {
   navigator.clipboard.writeText(history.originalPrompt);
 }
 
-function handleCopyOptimized(history: OptimizeHistory) {
+function handleCopyOptimized(history: OptimizeHistoryItem) {
   navigator.clipboard.writeText(history.optimizedPrompt);
 }
 
-function handleDelete(history: OptimizeHistory) {
+function handleDelete(history: OptimizeHistoryItem) {
   if (confirm(t('history.delete'))) {
     historyStore.deleteHistory(history.id);
   }

@@ -339,6 +339,8 @@ export function createOptimizeModal(
 
   applyBtn.addEventListener('click', (e) => {
     e.stopPropagation();
+
+    // 历史记录已在优化完成时保存，这里直接应用
     if (targetElement) {
       const result = replaceInputText(targetElement, optimizedText);
       if (result.success) {

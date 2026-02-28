@@ -83,7 +83,10 @@
     "statistics": "Statistics",
     "totalOptimizations": "Total Optimizations",
     "averagePromptLength": "Average Prompt Length",
-    "bySite": "By Site"
+    "bySite": "By Site",
+    "sessionNote": "History records are only saved during the current browser session and will be cleared after closing the browser",
+    "apply": "Apply",
+    "copied": "Copied"
   },
   "common": {
     "confirm": "Confirm",
@@ -152,6 +155,7 @@
     "translation": "Translation Optimization",
     "analysis": "Analysis Optimization",
     "creative": "Creative Optimization",
+    "iterative": "Iterative Optimization",
     "custom": "Custom"
   },
   "privacy": {

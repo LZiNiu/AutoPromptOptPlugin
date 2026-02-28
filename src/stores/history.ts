@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { OptimizeHistory } from '@/types/storage';
-import { optimizeHistory } from '@/utils/storage';
+import type { OptimizeHistoryItem } from '@/types/storage';
+import { sessionHistory } from '@/utils/storage';
 
 /**
  * 历史记录 Store
@@ -9,7 +9,7 @@ import { optimizeHistory } from '@/utils/storage';
  */
 export const useHistoryStore = defineStore('history', () => {
   // 业务响应式变量
-  const histories = ref<OptimizeHistory[]>([]);
+  const histories = ref<OptimizeHistoryItem[]>([]);
   const searchQuery = ref('');
   const isLoaded = ref(false);
 
@@ -27,14 +27,14 @@ export const useHistoryStore = defineStore('history', () => {
     isInitializing = true;
 
     try {
-      histories.value = await optimizeHistory.get();
+      histories.value = await sessionHistory.get();
       isLoaded.value = true;
 
       // 监听外部变化（其他页面修改 storage）
       if (unwatchStorage) {
         unwatchStorage();
       }
-      unwatchStorage = optimizeHistory.watch((newValue) => {
+      unwatchStorage = sessionHistory.watch((newValue) => {
         histories.value = newValue;
       });
     } finally {
@@ -56,7 +56,7 @@ export const useHistoryStore = defineStore('history', () => {
    * 同步数据到 storage
    */
   async function syncToStorage() {
-    await optimizeHistory.set([...histories.value]);
+    await sessionHistory.set([...histories.value]);
   }
 
   // 计算属性：过滤后的历史记录
@@ -95,8 +95,8 @@ export const useHistoryStore = defineStore('history', () => {
   /**
    * 添加历史记录
    */
-  async function addHistory(history: Omit<OptimizeHistory, 'id' | 'timestamp'>) {
-    const newHistory: OptimizeHistory = {
+  async function addHistory(history: Omit<OptimizeHistoryItem, 'id' | 'timestamp'>) {
+    const newHistory: OptimizeHistoryItem = {
       ...history,
       id: generateId(),
       timestamp: Date.now(),
@@ -134,13 +134,6 @@ export const useHistoryStore = defineStore('history', () => {
   }
 
   /**
-   * 获取指定站点的历史记录
-   */
-  const getHistoriesBySite = (siteId: string) => {
-    return histories.value.filter((history) => history.siteId === siteId);
-  };
-
-  /**
    * 获取指定日期范围内的历史记录
    */
   const getHistoriesByDateRange = (startTime: number, endTime: number) => {
@@ -154,11 +147,6 @@ export const useHistoryStore = defineStore('history', () => {
    */
   const getStatistics = () => {
     const totalOptimizations = histories.value.length;
-    const siteStats: Record<string, number> = {};
-
-    histories.value.forEach((history) => {
-      siteStats[history.siteId] = (siteStats[history.siteId] || 0) + 1;
-    });
 
     const averagePromptLength =
       totalOptimizations > 0
@@ -170,7 +158,6 @@ export const useHistoryStore = defineStore('history', () => {
 
     return {
       totalOptimizations,
-      siteStats,
       averagePromptLength,
     };
   };
@@ -188,7 +175,6 @@ export const useHistoryStore = defineStore('history', () => {
     deleteHistory,
     clearAllHistories,
     clearOldHistories,
-    getHistoriesBySite,
     getHistoriesByDateRange,
     getStatistics,
   };

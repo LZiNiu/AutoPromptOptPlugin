@@ -21,11 +21,19 @@ const skipPreview = computed({
   set: (val) => { settingsStore.setSkipPreview(val); }
 });
 
+// API Key 防抖更新
+let apiKeyDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 const apiKey = computed({
   get: () => llmConfig.value.apiKey,
   set: (val) => {
     llmConfig.value.apiKey = val;
-    llmConfigStorage.set(llmConfig.value);
+    // 防抖：500ms 后保存
+    if (apiKeyDebounceTimer) {
+      clearTimeout(apiKeyDebounceTimer);
+    }
+    apiKeyDebounceTimer = setTimeout(() => {
+      llmConfigStorage.set(llmConfig.value);
+    }, 500);
   }
 });
 

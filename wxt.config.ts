@@ -8,6 +8,9 @@ export default defineConfig({
     permissions: ['storage', 'activeTab', 'scripting'],
   },
   vite: () => ({
+    ssr: {
+      noExternal: ['vue'],
+    },
     plugins: [tailwindcss()],
   } as WxtViteConfig),
 });

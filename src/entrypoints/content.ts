@@ -1,5 +1,5 @@
 import { injectOptimizeButton, findSingleInputElement, removeAllInjectedButtons, type InjectContext, type InjectInstance } from '@/utils/injector';
-import { storage } from '#imports';
+import { llmConfig, userPromptConfig, promptTemplates, appSettings } from '@/utils/storage';
 import type { LLMConfig, UserPromptConfig, PromptTemplate, AppSettings } from '@/types/storage';
 
 // 目标网站配置
@@ -73,7 +73,7 @@ export default defineContentScript({
     }
 
     // 初始化
-    init(ctx);
+    init();
 
     // 监听存储变化
     watchStorageChanges(ctx);
@@ -86,13 +86,13 @@ export default defineContentScript({
 /**
  * 初始化内容脚本
  */
-async function init(ctx: ContentScriptContext): Promise<void> {
+async function init(): Promise<void> {
   console.log('[AutoPromptOpt] 开始初始化...');
 
   try {
     // 加载配置
     await loadContext();
-    console.log('[AutoPromptOpt] 配置加载完成:', currentContext ? '成功' : '失败');
+    console.log('[AutoPromptOpt] 配置加载完成:', currentContext);
 
     // 注入按钮
     injectButtons();
@@ -103,16 +103,20 @@ async function init(ctx: ContentScriptContext): Promise<void> {
 
 /**
  * 加载注入上下文
+ * 通过 background script 加载配置，避免 content script 直接访问 storage
  */
 async function loadContext(): Promise<void> {
   console.log('[AutoPromptOpt] 开始加载存储数据...');
 
   try {
-    // 使用 browser.storage API 直接访问
-    const llmData = await storage.getItem<LLMConfig>('local:llmConfig');
-    const promptData = await storage.getItem<UserPromptConfig>('local:userPromptConfig');
-    const templatesData = await storage.getItem<PromptTemplate[]>('local:promptTemplates');
-    const settingsData = await storage.getItem<AppSettings>('local:appSettings');
+    // 通过消息传递从 background script 加载配置
+    const response = await browser.runtime.sendMessage({ type: 'LOAD_CONTEXT' });
+
+    if (!response.success) {
+      throw new Error(response.error);
+    }
+
+    const { llmConfig: llmData, userPromptConfig: promptData, templates: templatesData, appSettings: settingsData } = response.data;
 
     console.log('[AutoPromptOpt] 存储数据加载结果:', {
       llm: llmData ? '已加载' : '未找到',
@@ -122,9 +126,9 @@ async function loadContext(): Promise<void> {
     });
 
     currentContext = {
-      llmConfig: llmData || { apiKey: '', providerId: 'custom', endpoint: '', model: '' },
-      userPromptConfig: promptData || { selectedPromptId: 'general-v1', customPrompts: [], builtInOverrides: {} },
-      templates: templatesData || [],
+      llmConfig: llmData,
+      userPromptConfig: promptData,
+      templates: templatesData,
       skipPreview: settingsData?.skipPreview || false,
     };
 
@@ -225,7 +229,7 @@ function updateInjectInstances(): void {
 /**
  * 监听存储变化
  */
-function watchStorageChanges(ctx: ContentScriptContext): void {
+function watchStorageChanges(ctx: any): void {
   console.log('[AutoPromptOpt] 开始监听存储变化...');
 
   // 如果之前有监听，先取消
@@ -235,13 +239,8 @@ function watchStorageChanges(ctx: ContentScriptContext): void {
   }
 
   try {
-    // 使用 storage.watch 监听所有相关键的变化
-    const unwatchPromptTemplates = storage.watch<PromptTemplate[]>('local:promptTemplates', (newTemplates, oldTemplates) => {
-      // console.log('[AutoPromptOpt] 模板数据变化:', {
-      //   new: newTemplates ? `${newTemplates.length} 个模板` : 'null',
-      //   old: oldTemplates ? `${oldTemplates.length} 个模板` : 'null',
-      // });
-
+    // 使用 storage 模块的 watch 方法监听变化
+    const unwatchPromptTemplates = promptTemplates.watch((newTemplates) => {
       if (ctx.isInvalid) {
         console.log('[AutoPromptOpt] 上下文已失效，忽略存储变化');
         return;
@@ -255,8 +254,9 @@ function watchStorageChanges(ctx: ContentScriptContext): void {
       }
     });
 
-    const unwatchLLMConfig = storage.watch<LLMConfig>('local:llmConfig', (newConfig) => {
+    const unwatchLLMConfig = llmConfig.watch((newConfig) => {
       console.log('[AutoPromptOpt] LLM 配置变化:', newConfig ? '已更新' : 'null');
+      console.log('更新为:', newConfig);
       if (ctx.isInvalid) return;
       if (currentContext && newConfig) {
         currentContext.llmConfig = newConfig;
@@ -265,7 +265,7 @@ function watchStorageChanges(ctx: ContentScriptContext): void {
       }
     });
 
-    const unwatchUserPromptConfig = storage.watch<UserPromptConfig>('local:userPromptConfig', (newConfig) => {
+    const unwatchUserPromptConfig = userPromptConfig.watch((newConfig) => {
       console.log('[AutoPromptOpt] 提示词配置变化:', newConfig ? '已更新' : 'null');
       if (ctx.isInvalid) return;
       if (currentContext && newConfig) {
@@ -275,7 +275,7 @@ function watchStorageChanges(ctx: ContentScriptContext): void {
       }
     });
 
-    const unwatchAppSettings = storage.watch<AppSettings>('local:appSettings', (newSettings) => {
+    const unwatchAppSettings = appSettings.watch((newSettings) => {
       console.log('[AutoPromptOpt] 应用设置变化:', newSettings ? '已更新' : 'null');
       if (ctx.isInvalid) return;
       if (currentContext && newSettings) {
@@ -303,7 +303,7 @@ function watchStorageChanges(ctx: ContentScriptContext): void {
 /**
  * 监听页面变化
  */
-function observePageChanges(ctx: ContentScriptContext): void {
+function observePageChanges(ctx: any): void {
   let lastUrl = location.href;
   let lastContainer: Element | null = null;
 
@@ -322,7 +322,7 @@ function observePageChanges(ctx: ContentScriptContext): void {
       setTimeout(() => injectButtons(), 500);
     } else {
       // 检查容器是否发生变化（被重新创建或移动）
-      checkContainerChanges(ctx, (newContainer) => {
+      checkContainerChanges((newContainer) => {
         lastContainer = newContainer;
       });
       // 检查是否有新的输入框出现
@@ -342,7 +342,7 @@ function observePageChanges(ctx: ContentScriptContext): void {
  * 检查按钮容器是否发生变化
  * 当容器被重新创建或移动时，重新注入按钮
  */
-function checkContainerChanges(ctx: ContentScriptContext, onContainerFound: (container: Element) => void): void {
+function checkContainerChanges(onContainerFound: (container: Element) => void): void {
   const hostname = window.location.hostname;
   const config = findSiteConfig(hostname);
 
