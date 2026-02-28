@@ -6,6 +6,8 @@ export default defineConfig({
   srcDir: 'src',
   manifest: {
     permissions: ['storage', 'activeTab', 'scripting'],
+    name: '提示词自动优化',
+    description: '自动优化提示词，提高模型响应质量',
   },
   vite: () => ({
     ssr: {

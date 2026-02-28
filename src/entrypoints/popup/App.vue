@@ -58,10 +58,17 @@ const apiKeyPlaceholder = computed(() => currentProvider.value.keyPlaceholder);
 
 const totalOptimizations = computed(() => historyStore.histories.length);
 
-function openOptionsPage() {
-  browser.tabs.create({
-    url: browser.runtime.getURL('/options.html'),
-  });
+async function openOptionsPage() {
+  const optionsUrl = browser.runtime.getURL('/options.html');
+
+  const existingTabs = await browser.tabs.query({ url: optionsUrl });
+
+  if (existingTabs.length > 0 && existingTabs[0].id) {
+    await browser.tabs.update(existingTabs[0].id, { active: true });
+    await browser.windows.update(existingTabs[0].windowId, { focused: true });
+  } else {
+    await browser.tabs.create({ url: optionsUrl });
+  }
 }
 
 onMounted(async () => {
